@@ -67,6 +67,8 @@ docker compose up -d --build
 # then visit http://localhost:8080
 ```
 
+The comic maker is published at [comic.tinyinternet.company](https://comic.tinyinternet.company).
+
 ## Put it on GitHub Pages
 
 1. Push this folder to a repository.
