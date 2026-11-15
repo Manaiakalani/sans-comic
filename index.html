@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#f8fbfc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b2228" media="(prefers-color-scheme: dark)">
+<title>Sans Comic</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Comic+Neue:ital,wght@0,700;1,700&family=Patrick+Hand&family=Caveat+Brush&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<link rel="preload" href="art/faces.png" as="image">
+</head>
+<body>
+<div class="app">
+  <header class="bar">
+    <div class="brand" aria-label="Sans Comic"><b>Sans</b><span>Comic</span></div>
+    <input id="title" class="title" type="text" maxlength="60" aria-label="Strip title" placeholder="Name this strip">
+    <button id="live" class="live" type="button" hidden aria-label="Room: who is here"></button>
+    <nav class="bar-actions" aria-label="Strip">
+      <button class="btn ghost wide-only" type="button" data-act="undo" title="Remove your last line (Ctrl+Z)">Undo</button>
+      <button class="btn ghost read-btn" type="button" data-act="read" title="Read the strip one panel at a time" aria-label="Read"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 5.5C5.5 4.3 8.6 4.4 12 6.3c3.4-1.9 6.5-2 9-.8v13.2c-2.5-1.2-5.6-1.1-9 .8-3.4-1.9-6.5-2-9-.8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.3v13.2" stroke="currentColor" stroke-width="1.8"/></svg><span class="lbl">Read</span></button>
+      <button id="btn-room" class="btn ghost wide-only" type="button" data-act="room" hidden>Draw together</button>
+      <button class="btn ghost wide-only" type="button" data-act="lib">My comics</button>
+      <button class="btn ghost wide-only" type="button" data-act="look">Look</button>
+      <button class="btn solid" type="button" data-act="export">Export</button>
+      <button class="btn ghost icon" type="button" data-act="more" aria-label="More">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main id="scroller" class="scroller">
+    <div id="strip" class="strip" aria-label="Your strip. Choose a panel to edit it."></div>
+    <p id="empty" class="empty" hidden>Type a line below and it becomes the first panel.</p>
+  </main>
+
+  <section class="dock" aria-label="Write a line">
+    <div class="dock-in">
+      <button id="btn-tray" class="stage" type="button" aria-expanded="false" aria-controls="tray" title="Show or hide mood, gesture and balloon">
+        <canvas id="preview"></canvas>
+        <span id="mood" class="mood">Auto</span>
+      </button>
+
+      <div id="tray" class="tray" hidden>
+        <div id="tabs" class="tabs" role="tablist" aria-label="Pose and balloon"></div>
+        <div class="pickstack">
+          <div id="moods" class="picks" role="radiogroup" aria-label="Mood"></div>
+          <div id="gestures" class="picks off" role="radiogroup" aria-label="Gesture"></div>
+          <div id="kinds" class="picks off" role="radiogroup" aria-label="Balloon"></div>
+        </div>
+      </div>
+
+      <div class="cast-row">
+        <div id="cast" class="cast" role="radiogroup" aria-label="Who is speaking"></div>
+        <button id="btn-cast" class="chip add" type="button" title="See all 31 characters and choose who is in the strip"><span aria-hidden="true">＋</span> <span class="long">All characters</span><span class="short">Cast</span></button>
+        <label class="turns"><input id="turns" type="checkbox"> <span class="long">Take turns</span><span class="short">Turns</span></label>
+      </div>
+
+      <form id="composer" class="composer" autocomplete="off">
+        <p id="typing" class="typing" aria-live="polite"></p>
+        <div id="slash" class="slash" role="listbox" aria-label="Commands" hidden></div>
+        <textarea id="text" rows="1" maxlength="260" placeholder="Say something…" aria-label="Line of dialogue. Type / for gestures and effects." aria-controls="slash" aria-autocomplete="list" aria-expanded="false" enterkeyhint="send"></textarea>
+        <button class="btn solid send" type="submit">Draw it</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg-cast" class="sheet wide">
+  <form method="dialog" class="sheet-head"><h2>Casting</h2><button class="btn ghost" value="close">Done</button></form>
+  <div class="audition">
+    <canvas id="audition"></canvas>
+    <div class="aud-info">
+      <h3 id="aud-name"></h3>
+      <p id="aud-stats" class="sheet-note"></p>
+      <p id="aud-mood" class="aud-mood"></p>
+      <button id="aud-toggle" class="btn solid" type="button"></button>
+    </div>
+  </div>
+  <p class="sheet-note">Tap a face to watch the audition and add them. Up to six in the cast. All drawn by Jim Woodring for Microsoft Comic Chat.</p>
+  <div id="gallery" class="gallery"></div>
+</dialog>
+
+<dialog id="dlg-look" class="sheet wide">
+  <form method="dialog" class="sheet-head"><h2>Look</h2><button class="btn ghost" value="close">Done</button></form>
+  <div id="look-tabs" class="tabs" role="tablist" aria-label="What to change"></div>
+  <div class="lookstack">
+    <section id="look-panels">
+      <div id="bgs" class="bgs"></div>
+      <div class="field row wrap">
+        <button id="bg-upload" class="btn ghost" type="button">Upload a photo</button>
+        <input id="bg-file" type="file" accept="image/*" hidden>
+        <label class="check" for="bg-color">Solid colour <input id="bg-color" type="color" value="#bfe3f5"></label>
+      </div>
+      <p class="sheet-note">A photo is cropped square and stays in this browser. To give one panel its own backdrop, tap that panel.</p>
+    </section>
+    <section id="look-page" class="off">
+      <div id="tints" class="tints" role="radiogroup" aria-label="Page colour"></div>
+      <div class="field row">
+        <span class="field-label" id="lbl-pattern">Pattern</span>
+        <div id="patterns" class="seg" role="radiogroup" aria-labelledby="lbl-pattern"></div>
+      </div>
+    </section>
+    <section id="look-drawing" class="off">
+      <div class="field row"><span class="field-label" id="lbl-hand">Lettering hand</span><div id="hands" class="seg" role="radiogroup" aria-labelledby="lbl-hand"></div></div>
+      <div class="field row"><span class="field-label" id="lbl-caps">Letters</span><div id="caps" class="seg" role="radiogroup" aria-labelledby="lbl-caps"></div></div>
+      <div class="field row"><span class="field-label" id="lbl-frame">Panel frame</span><div id="frames" class="seg" role="radiogroup" aria-labelledby="lbl-frame"></div></div>
+      <div class="field row"><span class="field-label" id="lbl-row">Panels per row</span><div id="perrow" class="seg" role="radiogroup" aria-labelledby="lbl-row"></div></div>
+      <div class="field row"><span class="field-label" id="lbl-sides">Positions</span><div id="sides" class="seg" role="radiogroup" aria-labelledby="lbl-sides"></div></div>
+      <div class="field row"><span class="field-label" id="lbl-tags">Name tags</span><div id="tags" class="seg" role="radiogroup" aria-labelledby="lbl-tags"></div></div>
+      <p class="sheet-note">Keep sides holds each character on the same side in every panel. Panels per row also sets the shape of the exported image.</p>
+    </section>
+  </div>
+</dialog>
+
+<dialog id="dlg-lib" class="sheet wide">
+  <form method="dialog" class="sheet-head"><h2>My comics</h2><button class="btn ghost" value="close">Done</button></form>
+  <div class="sheet-foot top">
+    <span class="sheet-note">Every strip saves itself as you write. They stay in this browser.</span>
+    <button class="btn ghost" type="button" data-act="openfile">Open a project file</button>
+    <button id="lib-new" class="btn solid" type="button">New strip</button>
+  </div>
+  <div id="lib" class="lib"></div>
+</dialog>
+
+<dialog id="dlg-paste" class="sheet">
+  <form method="dialog" class="sheet-head"><h2>Paste a chat</h2><button class="btn ghost" value="close">Cancel</button></form>
+  <p class="sheet-note">One message per line, written as <kbd>Name: message</kbd>. Each name gets a character.</p>
+  <textarea id="paste-text" rows="9" placeholder="Sam: hi, are you free tonight?&#10;Riley: I'm at practice until 8 :(&#10;Sam: LOL same as every Thursday"></textarea>
+  <div class="sheet-foot">
+    <label class="check"><input id="paste-new" type="checkbox" checked> <span>Start a new strip</span></label>
+    <button id="paste-go" class="btn solid" type="button">Make the comic</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-panel" class="sheet">
+  <form method="dialog" class="sheet-head"><h2 id="panel-title">Edit panel</h2><button class="btn ghost" value="close">Done</button></form>
+  <div id="panel-lines" class="lines"></div>
+  <div class="field row wrap">
+    <label class="field-label" for="panel-bg">Backdrop</label>
+    <select id="panel-bg" class="select"></select>
+  </div>
+  <div class="sheet-foot">
+    <button id="panel-read" class="btn ghost" type="button">Read from here</button>
+    <button id="panel-save" class="btn ghost" type="button">Save this panel</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-export" class="sheet wide">
+  <form method="dialog" class="sheet-head"><h2>Export</h2><button class="btn ghost" value="close">Close</button></form>
+  <div class="export-grid">
+    <div class="export-view"><img id="export-img" alt="Your comic strip"></div>
+    <div class="export-list">
+      <div class="xrow"><div><strong>Image</strong><small>The whole strip as one picture.</small></div><div class="xbtns"><button id="png-copy" class="btn ghost" type="button">Copy</button><button id="png-save" class="btn solid" type="button" data-needs-save>Save PNG</button></div></div>
+      <div class="xrow"><div><strong>Animated GIF</strong><small>Plays panel by panel, balloons popping in.</small></div><div class="xbtns"><button id="gif-go" class="btn ghost" type="button">Save GIF</button></div></div>
+      <div class="xrow" data-needs-save><div><strong>PDF</strong><small>Pages to print, two panels across.</small></div><div class="xbtns"><button id="pdf-go" class="btn ghost" type="button">Save PDF</button></div></div>
+      <div class="xrow" data-needs-save><div><strong>Project file</strong><small>Reopen it later and keep editing, on any device.</small></div><div class="xbtns"><button id="project-save" class="btn ghost" type="button">Save file</button></div></div>
+      <div class="xrow"><div><strong>Script</strong><small>Just the lines, as plain text.</small></div><div class="xbtns"><button id="script-copy" class="btn ghost" type="button">Copy</button><button id="script-save" class="btn ghost" type="button" data-needs-save>Save .txt</button></div></div>
+    </div>
+  </div>
+  <p id="export-note" class="sheet-note"></p>
+</dialog>
+
+<dialog id="dlg-room" class="sheet">
+  <form method="dialog" class="sheet-head"><h2>Draw together</h2><button class="btn ghost" value="close">Close</button></form>
+  <div id="room-out">
+    <p class="sheet-note">Everyone in a room writes into one strip, live, each as their own character. People need access to this comic to join.</p>
+    <button id="room-start" class="btn solid" type="button">Start a room</button>
+    <form id="room-join" class="room-join">
+      <label class="field-label" for="room-join-code">Or join one with its code</label>
+      <div class="room-join-row"><input id="room-join-code" type="text" placeholder="otter-plum-42" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn ghost" type="submit">Join</button></div>
+    </form>
+    <p id="room-error" class="room-error" role="alert"></p>
+  </div>
+  <div id="room-in" hidden>
+    <p class="sheet-note">Share this code. Anyone with access to this comic can join with it.</p>
+    <div class="room-code-row"><code id="room-code"></code><button id="room-copy" class="btn ghost" type="button">Copy code</button></div>
+    <p id="room-watch" class="room-watch" hidden>You can watch this room, but your lines won't be sent. The comic's owner can give you edit access.</p>
+    <h3 class="sub">Here now</h3>
+    <ul id="room-people" class="people"></ul>
+    <p class="sheet-note">Rooms keep nothing on their own. Each person's copy of the strip stays in their My comics.</p>
+    <button id="room-leave" class="btn danger" type="button">Leave room</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-read" class="reader" aria-label="Read the strip">
+  <div class="reader-top">
+    <strong id="read-title"></strong>
+    <span id="read-count" class="read-count"></span>
+    <form method="dialog"><button class="btn ghost" value="close">Close</button></form>
+  </div>
+  <div class="reader-stage">
+    <button id="read-prev" class="read-nav" type="button" aria-label="Previous panel">‹</button>
+    <canvas id="read-cv" role="img"></canvas>
+    <button id="read-next" class="read-nav" type="button" aria-label="Next">›</button>
+  </div>
+  <div class="reader-bar">
+    <button id="read-play" class="btn solid" type="button" aria-pressed="false">Play</button>
+    <span class="sheet-note">Tap or swipe, or use the arrow keys. Space plays.</span>
+  </div>
+</dialog>
+
+<dialog id="dlg-more" class="sheet">
+  <form method="dialog" class="sheet-head"><h2>Sans Comic</h2><button class="btn ghost" value="close">Close</button></form>
+  <label class="title-m narrow-only"><span class="field-label">Strip title</span><input id="title-m" type="text" maxlength="60" placeholder="Name this strip"></label>
+  <label class="check narrow-only turns-m"><input id="turns-m" type="checkbox"> <span>Take turns: after each line, the next character speaks</span></label>
+  <div class="more-actions">
+    <button class="btn ghost narrow-only" type="button" data-act="lib">My comics</button>
+    <button class="btn ghost narrow-only" type="button" data-act="look">Look</button>
+    <button class="btn ghost narrow-only" type="button" data-act="room" hidden>Draw together</button>
+    <button class="btn ghost narrow-only" type="button" data-act="undo">Undo</button>
+    <button class="btn ghost" type="button" data-act="redo">Redo</button>
+    <button class="btn ghost" type="button" data-act="paste">Paste a chat</button>
+    <button class="btn ghost" type="button" data-act="openfile">Open a project file</button>
+    <button class="btn ghost" type="button" data-act="new">New strip</button>
+  </div>
+  <input id="project-file" type="file" accept=".json,application/json" hidden>
+  <h3 class="sub">Writing tricks</h3>
+  <dl class="keys">
+    <dt><kbd>LOL</kbd> <kbd>:)</kbd> <kbd>CAPS</kbd></dt><dd>pick the face and balloon for you</dd>
+    <dt><kbd>(thinking)</kbd> <kbd>~whisper~</kbd> <kbd>*action*</kbd></dt><dd>thought cloud, whisper, narration box</dd>
+    <dt><kbd>/</kbd></dt><dd>gestures, dice (<kbd>/roll 2d6</kbd>), coins (<kbd>/flip</kbd>), sound effects (<kbd>/fx BOOM</kbd>)</dd>
+    <dt>A name</dt><dd>say someone's name and you point at them</dd>
+  </dl>
+  <h3 class="sub kbd-only">Keyboard</h3>
+  <dl class="keys kbd-only">
+    <dt><kbd>Enter</kbd></dt><dd>draw the line (<kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line)</dd>
+    <dt><kbd>Alt</kbd>+<kbd>1</kbd>-<kbd>6</kbd></dt><dd>switch speaker</dd>
+    <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></dt><dd>undo and redo, when the box is empty</dd>
+    <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd></dt><dd>in Read: previous, next, play</dd>
+  </dl>
+  <div class="credits">
+    <p>The name tips its hat to Comic Sans, the typeface first designed for Comic Chat. Characters and backdrops are by Jim Woodring, from the Comic Chat source Microsoft released under the MIT License in 2026. Copyright © Microsoft Corporation. The layout engine here is new.</p>
+    <p>Your strips are kept in this browser only.</p>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="seg-probe" aria-hidden="true"></div>
+<script src="manifest.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+<script src="share.js"></script>
+<script src="reader.js"></script>
+<script src="room.js"></script>
+</body>
+</html>
