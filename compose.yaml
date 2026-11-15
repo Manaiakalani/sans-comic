@@ -1,0 +1,36 @@
+# Sans Comic. A static site on nginx.
+#
+#   This computer:     docker compose up -d --build
+#   On nenebytes:      copy docker-compose.override.example.yml to
+#                      docker-compose.override.yml, then the same command.
+#
+# Nenebytes already runs cloudflared. Do not start a second tunnel.
+# Point the existing tunnel at http://sans-comic:8080.
+name: sans-comic
+
+services:
+  sans-comic:
+    build: .
+    image: sans-comic:local
+    container_name: sans-comic
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${HOST_PORT:-3027}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.50
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "3" }

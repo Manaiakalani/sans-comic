@@ -1,0 +1,19 @@
+# Copy to docker-compose.override.yml on nenebytes. That file stays off git.
+# Compose loads it automatically beside compose.yaml. Do not pass -f, or this
+# file is skipped.
+#
+# The app joins docker_default, the network the existing cloudflared already
+# uses, and does not create a new Docker network. Phones on the Wi-Fi open
+# port 3027. Do not start a second cloudflared. The tunnel origin is
+# http://sans-comic:8080, not the host port.
+services:
+  sans-comic:
+    ports: !override
+      - "3027:8080"
+    networks:
+      - default
+
+networks:
+  default:
+    name: docker_default
+    external: true

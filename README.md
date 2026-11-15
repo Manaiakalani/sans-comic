@@ -57,6 +57,32 @@ python3 -m http.server 8000
 Opening `index.html` straight from disk mostly works, but browsers block image export from
 `file://` pages, so use a server.
 
+## Run it in Docker
+
+The image is nginx serving this folder on port 8080. Comics stay in the browser. The container
+does not store them.
+
+```sh
+docker compose up -d --build
+# then visit http://localhost:3027
+```
+
+On nenebytes, copy `docker-compose.override.example.yml` to `docker-compose.override.yml` and
+run the same command with no `-f`. That joins the existing `docker_default` network and publishes
+`3027`. The house tunnel is already running. In the Cloudflare dashboard, add a public hostname
+on that tunnel:
+
+| Field | Value |
+|---|---|
+| Subdomain | `comic` |
+| Domain | `manaiakalani.info` |
+| Type | HTTP |
+| URL | `sans-comic:8080` |
+
+Leave the DNS record creation on, so Cloudflare adds the CNAME. Do not add an A record to the
+house, and do not point the origin at port 3027. Health is `/healthz`. The LAN address is
+`http://nenebytes:3027`.
+
 ## Put it on GitHub Pages
 
 1. Push this folder to a repository.
