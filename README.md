@@ -69,19 +69,10 @@ docker compose up -d --build
 
 On nenebytes, copy `docker-compose.override.example.yml` to `docker-compose.override.yml` and
 run the same command with no `-f`. That joins the existing `docker_default` network and publishes
-`3027`. The house tunnel is already running. In the Cloudflare dashboard, add a public hostname
-on that tunnel:
-
-| Field | Value |
-|---|---|
-| Subdomain | `comic` |
-| Domain | `manaiakalani.info` |
-| Type | HTTP |
-| URL | `sans-comic:8080` |
-
-Leave the DNS record creation on, so Cloudflare adds the CNAME. Do not add an A record to the
-house, and do not point the origin at port 3027. Health is `/healthz`. The LAN address is
-`http://nenebytes:3027`.
+`3027`. The house tunnel is already running. Its public hostname is
+[comic.tinyinternet.company](https://comic.tinyinternet.company), with origin
+`http://sans-comic:8080`. Do not start a second tunnel, and do not point the origin at port 3027.
+Health is `/healthz`. The LAN address is `http://nenebytes:3027`.
 
 ## Put it on GitHub Pages
 
