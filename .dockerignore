@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+comic-chat
+tools
+docs
+Dockerfile
+compose.yaml
+docker-compose.override.example.yml
+.gitignore
+.dockerignore
+**/*.md
+.DS_Store

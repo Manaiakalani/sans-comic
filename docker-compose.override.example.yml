@@ -1,0 +1,6 @@
+# Optional. Copy this file to docker-compose.override.yml to choose the
+# published port. Compose loads that copy on its own. Leave the copy untracked.
+services:
+  sans-comic:
+    ports: !override
+      - "8080:8080"

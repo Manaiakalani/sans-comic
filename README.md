@@ -57,6 +57,16 @@ python3 -m http.server 8000
 Opening `index.html` straight from disk mostly works, but browsers block image export from
 `file://` pages, so use a server.
 
+## Run it in Docker
+
+The image is nginx serving this folder on port 8080. Comics stay in the browser. The container
+does not store them.
+
+```sh
+docker compose up -d --build
+# then visit http://localhost:8080
+```
+
 ## Put it on GitHub Pages
 
 1. Push this folder to a repository.
