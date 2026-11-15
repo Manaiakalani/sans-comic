@@ -7,9 +7,7 @@
 <meta name="theme-color" content="#1b2228" media="(prefers-color-scheme: dark)">
 <title>Sans Comic</title>
 <link rel="icon" href="data:,">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Comic+Neue:ital,wght@0,700;1,700&family=Patrick+Hand&family=Caveat+Brush&family=Special+Elite&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="app.css">
 <link rel="preload" href="art/faces.png" as="image">
 </head>
@@ -34,7 +32,7 @@
 
   <main id="scroller" class="scroller">
     <div id="strip" class="strip" aria-label="Your strip. Choose a panel to edit it."></div>
-    <p id="empty" class="empty" hidden>Type a line below and it becomes the first panel.</p>
+    <p id="empty" class="empty" hidden>Type a line below and it becomes the first panel. It stays in this browser until you export a project file.</p>
   </main>
 
   <section class="dock" aria-label="Write a line">
@@ -119,7 +117,7 @@
 <dialog id="dlg-lib" class="sheet wide">
   <form method="dialog" class="sheet-head"><h2>My comics</h2><button class="btn ghost" value="close">Done</button></form>
   <div class="sheet-foot top">
-    <span class="sheet-note">Every strip saves itself as you write. They stay in this browser.</span>
+    <span class="sheet-note">Every strip saves itself as you write. It stays in this browser until you export a project file.</span>
     <button class="btn ghost" type="button" data-act="openfile">Open a project file</button>
     <button id="lib-new" class="btn solid" type="button">New strip</button>
   </div>
