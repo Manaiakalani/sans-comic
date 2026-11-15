@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "test": "node --test tools/engine.test.mjs",
     "vendor": "node tools/sync-vendor.mjs",
     "vendor:check": "node tools/sync-vendor.mjs --check"
   },

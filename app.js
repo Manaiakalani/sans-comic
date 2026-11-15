@@ -120,7 +120,7 @@ function render() {
   $('#empty').hidden = panels.length > 0;
   $$('[data-act="undo"]').forEach(b => { b.disabled = !state.lines.length; });
   $$('canvas.th').forEach(c => { if (!c._done) paintThumb(c); });
-  if ($('#dlg-lib').open) $$('#lib canvas').forEach(paintLibThumb);
+  if ($('#dlg-lib').open) $$('#lib canvas').forEach(cv => { if (cv._painted) paintLibThumb(cv); });
   drawPreview();
   emit('rendered', panels);
 }
@@ -427,8 +427,8 @@ function renderGallery() {
     b.dataset.id = c.id; b.setAttribute('aria-pressed', String(n >= 0));
     if (n >= 0) b.append(el('i', { className: 'badge', textContent: n + 1 }));
     b.addEventListener('click', () => toggleCast(c.id));
-    b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') audition(c.id); });
-    b.addEventListener('focus', () => audition(c.id));
+    b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') queueAudition(c.id); });
+    b.addEventListener('focus', () => queueAudition(c.id));
     return b;
   }));
 }
@@ -438,7 +438,9 @@ $('#btn-cast').addEventListener('click', () => {
   clearInterval(aud.timer);
   aud.timer = setInterval(() => { if (aud.seq.length < 2) return; aud.at = (aud.at + 1) % aud.seq.length; aud.pop = performance.now(); $('#aud-mood').textContent = aud.seq[aud.at].label; audPaint(aud.pop); }, 1150);
 });
-$('#dlg-cast').addEventListener('close', () => { clearInterval(aud.timer); cancelAnimationFrame(aud.raf); aud.id = null; });
+let audSoon = 0;
+function queueAudition(id) { clearTimeout(audSoon); audSoon = setTimeout(() => audition(id), 180); }
+$('#dlg-cast').addEventListener('close', () => { clearTimeout(audSoon); clearInterval(aud.timer); cancelAnimationFrame(aud.raf); aud.id = null; });
 
 // look: panel backdrops, page background, drawing style
 const backdropChoices = () => [...Object.entries(TONES).map(([id, t]) => [id, t[0]]), ['paper', 'Paper'], ['color', 'Solid colour'], ...(state.customBg ? [['custom', 'Your photo']] : []), ...ART.bgs.map(b => [b.id, b.name])];
@@ -579,7 +581,15 @@ function newStrip({ quiet = false, title = '' } = {}) {
   state = Object.assign(clone(state), { id: FP.uid(), title, lines: [], room: undefined });
   save(); refreshAll(); emit('strip-changed');
 }
+const libIO = new IntersectionObserver(entries => {
+  for (const en of entries) {
+    if (!en.isIntersecting) continue;
+    paintLibThumb(en.target);
+    libIO.unobserve(en.target);
+  }
+}, { rootMargin: '240px' });
 function paintLibThumb(cv) {
+  cv._painted = true;
   const first = FP.layoutStrip(cv._strip, null)[0], ctx = cv.getContext('2d');
   ctx.clearRect(0, 0, cv.width, cv.height);
   if (first) { first.ids.forEach(FP.atlas); FP.drawPanel(ctx, first, cv.width); }
@@ -589,7 +599,7 @@ function renderLib() {
   const list = lib.slice().sort((p, q) => (q.updated || 0) - (p.updated || 0));
   if (!list.length) return $('#lib').replaceChildren(el('p', { className: 'lib-empty', textContent: 'Nothing saved yet. Write a line and the strip appears here.' }));
   $('#lib').replaceChildren(...list.map(strip => {
-    const cv = el('canvas', { width: 300, height: 300 }); cv._strip = strip; paintLibThumb(cv);
+    const cv = el('canvas', { width: 300, height: 300 }); cv._strip = strip; libIO.observe(cv);
     const now = strip.id === state.id, n = strip.lines.length;
     const openBtn = el('button', { type: 'button', className: 'open', title: 'Open this strip' }, [cv, el('strong', { textContent: strip.title || 'Untitled strip' }), el('small', { textContent: `${n} line${n === 1 ? '' : 's'}, ${now ? 'open now' : day(strip.updated)}` })]);
     openBtn.addEventListener('click', () => { if (!now) setStrip(lib.find(x => x.id === strip.id)); close('#dlg-lib'); scroller.scrollTo({ top: 0 }); });
