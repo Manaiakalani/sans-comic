@@ -37,12 +37,28 @@ app.ACTS.export = async () => {
   await ready(panels);
   pngBlob = await blobOf(FP.renderSheet(app.state, panels));
   showPreview(pngBlob);
+  const shareBtn = $('#png-share');
+  if (shareBtn) shareBtn.hidden = !canSharePng(pngBlob);
   const can = !!app.saver;
   app.$$('#dlg-export [data-needs-save]').forEach(b => { b.hidden = !can; });
   $('#gif-go').textContent = can ? 'Save GIF' : 'Make GIF';
   $('#export-note').textContent = can ? '' : 'Saving files is not available here. Press and hold the picture, or right-click it, to keep it.';
   app.open('#dlg-export');
 };
+const shareName = () => app.fileName() + '.png';
+function canSharePng(blob) {
+  try {
+    if (!blob || !navigator.share || !navigator.canShare) return false;
+    return navigator.canShare({ files: [new File([blob], shareName(), { type: 'image/png' })] });
+  } catch (e) { return false; }
+}
+$('#png-share').addEventListener('click', async () => {
+  if (!pngBlob) return;
+  const file = new File([pngBlob], shareName(), { type: 'image/png' });
+  const title = (app.state.title || '').trim() || 'Sans Comic';
+  try { await navigator.share({ files: [file], title }); }
+  catch (err) { if (!err || err.name !== 'AbortError') app.toast('Sharing is blocked here. Press and hold the picture instead.'); }
+});
 $('#png-save').addEventListener('click', () => pngBlob && saveFile(app.fileName() + '.png', pngBlob, 'Image'));
 $('#png-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]); app.toast('Image copied.'); }
@@ -108,9 +124,31 @@ $('#pdf-go').addEventListener('click', async e => {
   saveFile(app.fileName() + '.pdf', blob, 'PDF');
 });
 
-/* Project file: everything needed to reopen and keep editing, here or on another device. */
+/* Project file: everything needed to reopen and keep editing, here or on another device.
+   A backup is the same kind of file, with every strip in My comics. */
 const projectOf = () => { const s = app.clone(app.state); delete s.room; s.lines.forEach(l => { delete l.mine; }); return JSON.stringify({ app: 'sans-comic', version: 1, strip: s }, null, 1); };
+function cleanProjectStrip(raw, { keepId = false } = {}) {
+  const strip = raw && raw.strip ? raw.strip : raw;
+  if (!app.validStrip(strip)) return null;
+  const next = app.clone(strip);
+  next.lines = next.lines.filter(l => l && FP.CH[l.who] && typeof l.text === 'string').map(l => Object.assign(l, { id: String(l.id || FP.uid()).slice(0, 24), text: String(l.text).slice(0, 300) }));
+  next.lines.forEach(l => { delete l.mine; });
+  delete next.room;
+  if (!next.lines.length) return null;
+  if (keepId && next.id) next.id = String(next.id).slice(0, 40);
+  else next.id = FP.uid();
+  return next;
+}
 $('#project-save').addEventListener('click', () => saveFile(app.fileName() + '.json', projectOf(), 'Project file'));
+$('#lib-backup').addEventListener('click', async () => {
+  app.save(); app.flush();
+  const strips = app.lib.map(s => { const c = app.clone(s); delete c.room; (c.lines || []).forEach(l => { delete l.mine; }); return c; });
+  if (!strips.length) return app.toast('Write a line first. Nothing is saved yet.');
+  const ok = await saveFile('sans-comic-backup.json', JSON.stringify({ app: 'sans-comic', version: 1, strips }, null, 1), 'Backup');
+  if (!ok) return;
+  try { localStorage.setItem('sans-comic-backup', String(Date.now())); } catch (e) { /* storage unavailable */ }
+  const hint = $('#lib-hint'); if (hint) hint.hidden = true;
+});
 $('#script-copy').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(FP.scriptOf(app.state)); app.toast('Script copied.'); }
   catch (e) { app.toast('Copying is blocked here.'); }
@@ -133,10 +171,21 @@ $('#project-file').addEventListener('change', async e => {
   if (!file) return;
   let data;
   try { data = JSON.parse(await file.text()); } catch (err) { return app.toast('That file is not a Sans Comic project.'); }
-  const strip = data && data.strip ? data.strip : data;
-  if (!app.validStrip(strip)) return app.toast('That file is not a Sans Comic project, or it uses characters this version lacks.');
-  strip.lines = strip.lines.filter(l => l && FP.CH[l.who] && typeof l.text === 'string').map(l => Object.assign(l, { id: String(l.id || FP.uid()).slice(0, 24), text: l.text.slice(0, 300) }));
-  strip.id = FP.uid(); delete strip.room;
+  if (data && Array.isArray(data.strips)) {
+    const strips = data.strips.map(raw => cleanProjectStrip(raw, { keepId: true })).filter(Boolean);
+    if (!strips.length) return app.toast('That backup has no comics this version can open.');
+    for (const strip of strips) {
+      const i = app.lib.findIndex(x => x.id === strip.id);
+      if (i >= 0) app.lib[i] = strip; else app.lib.unshift(strip);
+    }
+    const newest = strips.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+    app.setStrip(newest);
+    app.toast(`Opened ${strips.length} comic${strips.length === 1 ? '' : 's'} from the backup.`);
+    if ($('#dlg-lib').open) { app.close('#dlg-lib'); }
+    return;
+  }
+  const strip = cleanProjectStrip(data);
+  if (!strip) return app.toast('That file is not a Sans Comic project, or it uses characters this version lacks.');
   app.setStrip(strip);
   app.toast(`Opened “${strip.title || 'Untitled strip'}”. It is in My comics too.`);
 });
