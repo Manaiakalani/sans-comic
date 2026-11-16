@@ -128,6 +128,7 @@ function render() {
   $$('[data-act="undo"]').forEach(b => { b.disabled = !state.lines.length; });
   $$('canvas.th').forEach(c => { if (!c._done) paintThumb(c); });
   if ($('#dlg-lib').open) $$('#lib canvas').forEach(cv => { if (cv._painted) paintLibThumb(cv); });
+  applyCols();
   drawPreview();
   emit('rendered', panels);
 }
@@ -513,13 +514,20 @@ $('#bg-file').addEventListener('change', e => {
   img.onerror = () => { URL.revokeObjectURL(url); toast('This browser cannot open that file as a picture. Try a JPEG or PNG.'); };
   img.src = url;
 });
-const applyCols = () => { +state.perRow > 1 ? stripEl.style.setProperty('--cols', `repeat(${+state.perRow}, minmax(0, 1fr))`) : stripEl.style.removeProperty('--cols'); schedule(); };
+function applyCols() {
+  const n = panels.length, picked = +state.perRow;
+  // Auto keeps one to three panels large, and lays four as a square. A chosen count wins, and never adds an empty column.
+  const cols = picked > 1 ? Math.min(4, picked, Math.max(1, n)) : (n >= 4 ? (n === 4 ? 2 : 3) : 0);
+  if (cols) stripEl.style.setProperty('--cols', `repeat(${cols}, minmax(0, 1fr))`);
+  else stripEl.style.removeProperty('--cols');
+  stripEl.classList.toggle('many', n >= 4);
+}
 function loadHand() { const h = FP.handOf(state); if (document.fonts && document.fonts.load) document.fonts.load(`${h[2]} 40px ${h[1]}`).then(schedule, () => {}); }
 const styled = fn => v => { fn(v); save(); render(); emit('style'); };
 seg($('#hands'), Object.entries(HANDS).map(([id, h]) => [id, h[0]]), () => state.font || 'classic', styled(v => { state.font = v; loadHand(); }), (b, id) => { b.style.fontFamily = HANDS[id][1]; b.style.fontWeight = HANDS[id][2]; b.style.fontSize = '15px'; });
 seg($('#caps'), [[false, 'Mixed case'], [true, 'ALL CAPS']], () => !!state.caps, styled(v => { state.caps = v; }));
 seg($('#frames'), [['plain', 'Plain'], ['rough', 'Rough'], ['none', 'None']], () => state.frame || 'plain', styled(v => { state.frame = v; }));
-seg($('#perrow'), [['auto', 'Auto'], [2, '2'], [3, '3'], [4, '4']], () => +state.perRow > 1 ? +state.perRow : 'auto', v => { state.perRow = v; save(); applyCols(); });
+seg($('#perrow'), [['auto', 'Auto'], [2, '2'], [3, '3'], [4, '4']], () => +state.perRow > 1 ? +state.perRow : 'auto', v => { state.perRow = v; save(); applyCols(); schedule(); });
 seg($('#sides'), [[true, 'Keep sides'], [false, 'Swap freely']], () => state.sides !== false, styled(v => { state.sides = v; }));
 seg($('#tags'), [[false, 'Off'], [true, 'Show names']], () => !!state.tags, styled(v => { state.tags = v; }));
 const LOOKS = [['look-panels', 'Panel backdrop'], ['look-page', 'Page background'], ['look-drawing', 'Drawing']]; let lookTab = 'look-panels';
