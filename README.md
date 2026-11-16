@@ -29,6 +29,8 @@ and [SVG](docs/diagrams/how-a-line-becomes-a-panel.svg).
 - **Read.** A full-screen reader that reveals balloons one at a time.
 - **Export.** PNG, animated GIF, PDF, a project file you can reopen, or the plain script.
 - **Take turns.** With two or more people in the cast, each drawn line hands the next line to the next character.
+- **Auto character.** Turn on Auto beside the cast. Start a line with `Name:` and that character says it, joining the cast when there is room. A name later in the line still points. Take turns keeps rotating when the line has no name.
+- **Writing desk.** Narrow, then minimize, the bottom composer so the strip gets the room. The line box and Draw it stay where they are.
 
 ## Screens
 

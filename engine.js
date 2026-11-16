@@ -70,6 +70,15 @@ function mentionIn(text, who, strip) {   // naming someone in the cast points at
   for (const id of ids) if (CH[id] && nameMatcher(id).test(text)) return id;
   return null;
 }
+// A leading "Name:" is the speaker. A name later in the line is only a mention, so "Dan, look" does not become Dan talking.
+function namedLine(text, ids) {
+  const m = String(text || '').match(/^\s*([^:\n]{1,40}?)\s*:\s*([\s\S]*)$/);
+  if (!m) return null;
+  const key = m[1].trim().toLowerCase();
+  if (!key) return null;
+  const id = (ids || []).find(cid => CH[cid] && (cid === key || CH[cid].name.toLowerCase() === key));
+  return id ? { id, text: m[2].trim() } : null;
+}
 function readLine(line, strip) {
   let text = (line.text || '').trim(), kind = line.kind || 'auto', m, cmdEmo = null, cmdGest = null, cmdKind = null;
   while ((m = text.match(/^\/([a-z]+)(?:\s+|$)/i)) && CMD[m[1].toLowerCase()] && !CMD[m[1].toLowerCase()].app) {
@@ -498,7 +507,7 @@ window.FP = {
   ART, CH, AS, E, MOOD, GLABEL, TONES, HANDS, INK, FONT, P, FLOOR, COMMANDS, CMD, NAME_TO_ID,
   uid, hash, rng, get epoch() { return epoch; },
   loadImage, atlas, whenArtLoads, whenReady,
-  readLine, pickPose, poseBox, standingHeight, moodsOf, gesturesOf, drawFigure,
+  readLine, namedLine, pickPose, poseBox, standingHeight, moodsOf, gesturesOf, drawFigure,
   fontOf, handOf, layoutStrip, drawPanel, drawBalloon, drawBackdrop, beatsOf, renderSheet, scriptOf,
 };
 })();
