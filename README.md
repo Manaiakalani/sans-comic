@@ -93,7 +93,9 @@ Health is `/healthz`. The LAN address is `http://nenebytes:3027`.
   Portraits for the cast chips come from one shared sheet, `art/faces.png`.
 
 Drawing, lettering and export do not need a network connection. A shared room still needs a room
-service from the page host.
+service from the page host. What the page stores, and what it does not send, is written at
+`privacy.html`. The source repository is
+[Manaiakalani/sans-comic](https://github.com/Manaiakalani/sans-comic).
 
 ## Draw together
 
@@ -107,7 +109,7 @@ WebSocket relay.
 
 | File | What it holds |
 |---|---|
-| `index.html`, `app.css` | The page and its styles |
+| `index.html`, `app.css`, `favicon.svg`, `privacy.html` | The page, its styles, the icon, and the privacy note |
 | `engine.js` | Reads the words, picks poses, lays out panels, draws them |
 | `app.js` | The strip view, composer, pickers, sheets and saved comics |
 | `share.js` | PNG, GIF, PDF, project file and script export |
