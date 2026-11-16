@@ -11,7 +11,7 @@ const bus = new EventTarget();
 const emit = (type, detail) => bus.dispatchEvent(new CustomEvent(type, { detail }));
 
 /* ================= storage ================= */
-const KEY = 'sans-comic-v1', KEY_LIB = 'sans-comic-lib-v1';
+const KEY = 'sans-comic-v1', KEY_LIB = 'sans-comic-lib-v1', KEY_BG = 'sans-comic-bg-v1';
 // strips saved while the app was still called Funny Pages are picked up once, then kept under the new keys
 const stored = (key, old) => { const v = localStorage.getItem(key); return v != null ? v : localStorage.getItem(old); };
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -26,11 +26,32 @@ const sample = () => ({
   ],
 });
 const validStrip = s => s && typeof s === 'object' && Array.isArray(s.lines) && Array.isArray(s.cast) && s.cast.length && s.cast.every(c => CH[c]);
-let state = sample(), lib = [], fullWarned = false, saveT = 0;
+let state = sample(), lib = [], bgs = {}, fullWarned = false, nearWarned = false, saveT = 0;
 try { const s = JSON.parse(stored(KEY, 'funny-pages-v1')); if (validStrip(s)) state = Object.assign(sample(), s); } catch (e) { /* storage unavailable */ }
 try { const l = JSON.parse(stored(KEY_LIB, 'funny-pages-lib-v1')); if (Array.isArray(l)) lib = l.filter(validStrip); } catch (e) { /* storage unavailable */ }
+try { const b = JSON.parse(localStorage.getItem(KEY_BG)); if (b && typeof b === 'object') bgs = b; } catch (e) { /* storage unavailable */ }
 if (!state.id) state.id = FP.uid();
 state.lines = state.lines.filter(l => l && CH[l.who] && typeof l.text === 'string');
+function takePhoto(strip) {
+  if (!strip) return;
+  if (strip.customBg && !strip.customBgKey) strip.customBgKey = FP.uid();
+  if (strip.customBg && strip.customBgKey) bgs[strip.customBgKey] = strip.customBg;
+  else if (!strip.customBg && strip.customBgKey && bgs[strip.customBgKey]) strip.customBg = bgs[strip.customBgKey];
+}
+takePhoto(state); lib.forEach(takePhoto);
+// the photo is stored once; each saved strip keeps only its key
+function packStrip(strip) {
+  if (strip.customBg && !strip.customBgKey) strip.customBgKey = FP.uid();
+  const copy = clone(strip);
+  if (copy.customBg && copy.customBgKey) { bgs[copy.customBgKey] = copy.customBg; delete copy.customBg; }
+  return copy;
+}
+function usedPhotoKeys() {
+  const used = new Set();
+  const note = s => { if (s && s.customBgKey) used.add(s.customBgKey); };
+  note(state); lib.forEach(note); past.forEach(note); future.forEach(note);
+  return used;
+}
 // every strip with lines in it lives in the library; the one on screen is kept there as you write
 function save() {
   state.updated = Date.now();
@@ -40,8 +61,24 @@ function save() {
 }
 function flush() {
   clearTimeout(saveT);
-  try { localStorage.setItem(KEY, JSON.stringify(state)); localStorage.setItem(KEY_LIB, JSON.stringify(lib)); }
-  catch (e) { if (!fullWarned && e && /quota/i.test(e.name + e.message)) { fullWarned = true; toast('This browser is out of room for saved comics. Delete an old one to keep saving.'); } }
+  const packedLib = lib.map(packStrip);
+  const packedState = packStrip(state);
+  for (const key of Object.keys(bgs)) if (!usedPhotoKeys().has(key)) delete bgs[key];
+  const libJson = JSON.stringify(packedLib), stateJson = JSON.stringify(packedState), bgJson = JSON.stringify(bgs);
+  if (!nearWarned && libJson.length + stateJson.length + bgJson.length > 4000000) {
+    nearWarned = true;
+    toast('My comics is nearly full. Delete an old strip to keep room for photos.');
+  }
+  try {
+    localStorage.setItem(KEY_LIB, libJson);
+    try {
+      localStorage.setItem(KEY_BG, bgJson);
+      localStorage.setItem(KEY, stateJson);
+    } catch (err) {
+      try { localStorage.setItem(KEY_LIB, JSON.stringify(lib)); localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* keep the in-memory copies */ }
+      throw err;
+    }
+  } catch (e) { if (!fullWarned && e && /quota/i.test(e.name + e.message)) { fullWarned = true; toast('This browser is out of room for saved comics. Delete an old one to keep saving.'); } }
 }
 addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
@@ -592,10 +629,10 @@ $('#bg-file').addEventListener('change', e => {
   if (!file) return;
   const url = URL.createObjectURL(file), img = new Image();
   img.onload = () => {   // crop to a square and shrink, so it fits in the browser's storage
-    const c = el('canvas', { width: 800, height: 800 }), side = Math.min(img.naturalWidth, img.naturalHeight);
-    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 800, 800);
+    const c = el('canvas', { width: 512, height: 512 }), side = Math.min(img.naturalWidth, img.naturalHeight);
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 512, 512);
     remember();
-    state.customBg = c.toDataURL('image/jpeg', 0.82); state.customBgKey = FP.uid(); state.bg = 'custom';
+    state.customBg = c.toDataURL('image/jpeg', 0.72); state.customBgKey = FP.uid(); state.bg = 'custom';
     URL.revokeObjectURL(url); save(); renderLook(); render();
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast('This browser cannot open that file as a picture. Try a JPEG or PNG.'); };
@@ -642,12 +679,11 @@ ACTS.look = () => { renderLook(); renderTints(); renderLookTabs(); open('#dlg-lo
 
 // paste a chat
 function importChat(raw, fresh) {
-  const rows = []; let last = null;
-  for (const row of raw.split(/\r?\n/)) {
-    const t = row.trim(); if (!t) continue;
+  const colon = t => {
     const m = t.match(/^(?:\[[^\]]*\]\s*|\d{1,2}[:.]\d{2}(?:\s?[ap]m)?\s*[-\u2013]?\s*)?([^:]{1,28}?)\s*:\s+(.+)$/i);
-    if (m) { last = m[1].trim(); rows.push([last, m[2]]); } else if (last) rows.push([last, t]); else rows.push(['', t]);
-  }
+    return m ? [m[1].trim(), m[2]] : null;
+  };
+  const rows = FP.chatRows(raw, colon);
   if (!rows.length) return 0;
   const names = [...new Set(rows.map(r => r[0]))], map = {}, taken = new Set();
   names.forEach(nm => { const id = FP.NAME_TO_ID[nm.toLowerCase()]; if (id && !taken.has(id)) { map[nm] = id; taken.add(id); } });
@@ -700,9 +736,44 @@ function renderPanelEditor() {
     del.addEventListener('click', () => { removeLine(line.id); renderPanelEditor(); });
     return el('div', { className: 'line' }, [who, input, el('div', { className: 'line-tools' }, [up, down, del])]);
   }));
+  const pi = panels.findIndex(p => p.lines.some(l => l.id === lines[0].id));
+  if (pi >= 0) editing.index = pi;
+  $('#panel-earlier').disabled = pi <= 0;
+  $('#panel-later').disabled = pi < 0 || pi >= panels.length - 1 || panels[pi + 1].lines.every(l => l.id === 'draft');
   const bgSel = $('#panel-bg'), cur = lines[0].bg || '';
   bgSel.replaceChildren(el('option', { value: '', textContent: 'Same as the strip' }), ...backdropChoices().map(([id, name]) => el('option', { value: id, textContent: name, selected: id === cur })));
 }
+function spanOf(list) {
+  const ids = new Set((list || []).filter(l => l && l.id && l.id !== 'draft').map(l => l.id));
+  const idx = [];
+  state.lines.forEach((l, i) => { if (ids.has(l.id)) idx.push(i); });
+  if (!idx.length || idx[idx.length - 1] - idx[0] + 1 !== idx.length) return null;
+  return { start: idx[0], end: idx[idx.length - 1] };
+}
+function movePanel(dir) {
+  if (!editing || !editing.lines.length) return;
+  const pi = panels.findIndex(p => p.lines.some(l => l.id === editing.lines[0].id));
+  const neighbor = panels[pi + dir];
+  if (pi < 0 || !neighbor || neighbor.lines.every(l => l.id === 'draft')) return;
+  const cur = spanOf(editing.lines), nb = spanOf(neighbor.lines);
+  if (!cur || !nb) return;
+  if (dir < 0 && nb.end + 1 !== cur.start) return;
+  if (dir > 0 && cur.end + 1 !== nb.start) return;
+  const anchor = editing.lines[0].id;
+  remember();
+  const block = state.lines.slice(cur.start, cur.end + 1), other = state.lines.slice(nb.start, nb.end + 1);
+  const original = dir < 0 ? [...other, ...block] : [...block, ...other];
+  const ordered = dir < 0 ? [...block, ...other] : [...other, ...block];
+  const stamps = original.map(l => l.t);
+  ordered.forEach((l, i) => { l.t = stamps[i]; });
+  state.lines.splice(Math.min(cur.start, nb.start), original.length, ...ordered);
+  save(); render(); emit('reordered');
+  const next = panels.findIndex(p => p.lines.some(l => l.id === anchor));
+  if (next < 0) { close('#dlg-panel'); return; }
+  openPanel(next);
+}
+$('#panel-earlier').addEventListener('click', () => movePanel(-1));
+$('#panel-later').addEventListener('click', () => movePanel(1));
 $('#panel-bg').addEventListener('change', e => { editing.lines.forEach(l => updateLine(l.id, { bg: e.target.value || undefined }, { token: 'panel-bg' })); render(); });
 $('#panel-read').addEventListener('click', () => { const i = panels.findIndex(p => p.lines.includes(editing.lines[0])); close('#dlg-panel'); emit('read', Math.max(0, i)); });
 $('#panel-save').addEventListener('click', () => { const p = panels.find(q => q.lines.includes(editing.lines[0])); if (p) emit('save-panel', p); });
@@ -750,6 +821,19 @@ function renderLib() {
     const now = strip.id === state.id, n = strip.lines.length;
     const openBtn = el('button', { type: 'button', className: 'open', title: 'Open this strip' }, [cv, el('strong', { textContent: strip.title || 'Untitled strip' }), el('small', { textContent: `${n} line${n === 1 ? '' : 's'}, ${now ? 'open now' : day(strip.updated)}` })]);
     openBtn.addEventListener('click', () => { if (!now) setStrip(lib.find(x => x.id === strip.id)); close('#dlg-lib'); scroller.scrollTo({ top: 0 }); });
+    const dup = el('button', { type: 'button', className: 'btn ghost', textContent: 'Duplicate' });
+    dup.addEventListener('click', () => {
+      const src = lib.find(x => x.id === strip.id) || strip;
+      const copy = clone(src);
+      copy.id = FP.uid();
+      copy.title = ((copy.title || 'Untitled strip').trim() + ' copy').slice(0, 60);
+      copy.updated = Date.now();
+      delete copy.room;
+      if (copy.customBg && !copy.customBgKey) copy.customBgKey = FP.uid();
+      lib.unshift(copy);
+      save(); renderLib();
+      toast('A copy is in My comics.');
+    });
     const del = el('button', { type: 'button', className: 'btn danger', textContent: 'Delete' });
     del.addEventListener('click', () => {
       if (del.dataset.sure !== '1') { del.dataset.sure = '1'; del.textContent = 'Delete for good?'; return; }
@@ -757,7 +841,7 @@ function renderLib() {
       if (now) newStrip({ quiet: true }); else { save(); }
       renderLib();
     });
-    return el('div', { className: 'libcard' + (now ? ' now' : '') }, [openBtn, del]);
+    return el('div', { className: 'libcard' + (now ? ' now' : '') }, [openBtn, el('div', { className: 'lib-tools' }, [dup, del])]);
   }));
 }
 ACTS.lib = () => { save(); renderLib(); open('#dlg-lib'); };

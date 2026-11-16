@@ -22,7 +22,7 @@ The page is plain HTML, CSS, and JavaScript. There is no build step and no accou
 - **Live preview.** The line you are typing appears in the strip as a draft panel.
 - **Pickers made from the art.** Choose a mood, gesture, or balloon from the character's own drawings.
 - **Look.** Halftone, solid colour, or your own photo as a backdrop. Four lettering hands. A plain, rough, or empty panel frame. Panels per row. Name tags.
-- **My comics.** Every strip saves itself in the browser. Paste a chat log to turn it into a strip.
+- **My comics.** Every strip saves itself in the browser. Duplicate one, or paste a chat log to turn it into a strip. A name on its own line, with the message underneath, is read as that speaker.
 - **Read.** A full-screen reader that reveals balloons one at a time.
 - **Export.** PNG, animated GIF, PDF, a project file you can reopen, or the plain script. On a phone, Share sends the picture to Messages, Photos, or Files.
 - **Backup.** My comics can be saved as one file and opened again later, on this browser or another.

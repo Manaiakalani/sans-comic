@@ -471,9 +471,51 @@ function drawPanel(ctx, panel, px, opts = {}) {
 }
 const beatsOf = panel => panel.balloons.length + (panel.caption ? 1 : 0);   // how many reveals a panel has
 
+/* Same column count the PNG uses. Auto is one column per panel up to three, then two for four panels, then three. */
+function sheetCols(S, n) {
+  n = n | 0;
+  if (n < 1) return 1;
+  return +S.perRow > 1 ? Math.min(+S.perRow, n) : n <= 3 ? n : n === 4 ? 2 : 3;
+}
+/* A name on its own line, the way a copied phone chat often looks. A sentence is not a name. */
+function chatName(line) {
+  const t = String(line || '').trim();
+  if (!t || t.length > 28) return null;
+  if (/[:.!?…]/.test(t)) return null;
+  const words = t.split(/\s+/);
+  if (words.length > 3) return null;
+  if (!words.every(w => /^[\p{Lu}][\p{L}'’\-]*$/u.test(w))) return null;
+  return t;
+}
+/* Split a pasted chat into [speaker, message] rows. `colon` recognises "Name: message". */
+function chatRows(raw, colon) {
+  const rows = [], lines = String(raw || '').split(/\r?\n/);
+  let last = null, pending = null;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) continue;
+    const hit = typeof colon === 'function' ? colon(t) : null;
+    if (hit && hit[0] && String(hit[0]).trim()) {
+      pending = null;
+      last = String(hit[0]).trim();
+      const msg = hit[1] == null ? '' : String(hit[1]).trim();
+      if (msg) rows.push([last, msg]);
+      continue;
+    }
+    let next = '';
+    for (let j = i + 1; j < lines.length; j++) { const n = lines[j].trim(); if (n) { next = n; break; } }
+    const nextNamed = next && typeof colon === 'function' && colon(next);
+    if (chatName(t) && next && !(nextNamed && nextNamed[0])) { pending = chatName(t); last = pending; continue; }
+    const speaker = pending || last;
+    pending = null;
+    if (speaker) rows.push([speaker, t]);
+    else rows.push(['', t]);
+  }
+  return rows;
+}
 /* One whole strip as an image: title, panels in rows, credit line. */
 function renderSheet(S, panels, size = 720) {
-  const n = panels.length, cols = +S.perRow > 1 ? Math.min(+S.perRow, n) : n <= 3 ? n : n === 4 ? 2 : 3, rows = Math.ceil(n / cols), gap = 22, m = 44;
+  const n = panels.length, cols = sheetCols(S, n), rows = Math.ceil(n / cols), gap = 22, m = 44;
   const title = (S.title || '').trim(), head = title ? 84 : 0, foot = 46;
   const cv = document.createElement('canvas');
   cv.width = m * 2 + cols * size + (cols - 1) * gap; cv.height = m + head + rows * size + (rows - 1) * gap + foot + 14;
@@ -508,6 +550,6 @@ window.FP = {
   uid, hash, rng, get epoch() { return epoch; },
   loadImage, atlas, whenArtLoads, whenReady,
   readLine, namedLine, pickPose, poseBox, standingHeight, moodsOf, gesturesOf, drawFigure,
-  fontOf, handOf, layoutStrip, drawPanel, drawBalloon, drawBackdrop, beatsOf, renderSheet, scriptOf,
+  fontOf, handOf, layoutStrip, drawPanel, drawBalloon, drawBackdrop, beatsOf, renderSheet, sheetCols, chatRows, scriptOf,
 };
 })();
