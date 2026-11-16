@@ -4,9 +4,11 @@ Type a line, get a comic panel. Sans Comic is a comic strip maker in the browser
 
 Try it at [https://comic.tinyinternet.company](https://comic.tinyinternet.company).
 
+![Typing a line into Sans Comic. A draft panel appears, Draw it keeps the panel, and the next speaker joins the strip.](docs/making-a-strip.gif)
+
 ![How one typed line becomes a comic panel. The words choose a wave, a laugh, and a speech balloon, then the panel joins the page.](docs/diagrams/how-a-line-becomes-a-panel.png)
 
-The picture above is also stored as an [Excalidraw drawing](docs/diagrams/how-a-line-becomes-a-panel.excalidraw) and as [SVG](docs/diagrams/how-a-line-becomes-a-panel.svg).
+The chart above is also stored as an [Excalidraw drawing](docs/diagrams/how-a-line-becomes-a-panel.excalidraw) and as [SVG](docs/diagrams/how-a-line-becomes-a-panel.svg).
 
 Sans Comic uses the original characters and backdrops drawn by Jim Woodring, from the [Comic Chat source](https://github.com/microsoft/comic-chat) that Microsoft released under the MIT License. The name tips its hat to Comic Sans, the typeface first designed for Comic Chat.
 
@@ -97,7 +99,8 @@ Drawing, lettering, and export do not need a network connection. A shared room s
 | `fonts/` | The five lettering families, as woff2 |
 | `vendor/` | gifenc and jsPDF, copied from `node_modules` |
 | `tools/` | Art rebuild, the vendor refresh, and `engine.test.mjs` |
-| `docs/diagrams/` | The drawing at the top of this page |
+| `docs/diagrams/` | The chart under the title |
+| `docs/making-a-strip.gif` | A short recording of typing a line and drawing the panel |
 
 The comic is a pure function of the script: a strip is a list of lines plus a few style settings, and `FP.layoutStrip(strip)` turns that into panels. The editor, reader, exports, and thumbnails all draw through that one path. A strip keeps at most six characters in the cast.
 
