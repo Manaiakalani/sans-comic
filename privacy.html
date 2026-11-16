@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8fbfc">
+<title>Privacy, Sans Comic</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root { color-scheme: light; --ink: #111417; --muted: #55646f; --paper: #fff; --board: #dfe8ee; --blue: #1b7ea6; --spot: #ffd43b; }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --ink: #eef3f6; --muted: #9db0bc; --paper: #1b2228; --board: #12171b; --blue: #7cc8e6; --spot: #ffd43b; }
+  }
+  body { margin: 0; background: var(--board); color: var(--ink); font: 400 17px/1.5 "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 68ch; margin: 0 auto; padding: 28px 20px 64px; }
+  .brand { font-weight: 800; font-size: 22px; letter-spacing: -0.03em; }
+  .brand b { background: var(--spot); color: #111417; padding: 0 6px; border-radius: 6px; }
+  h1 { font-size: 34px; line-height: 1.1; letter-spacing: -0.03em; margin: 18px 0 8px; }
+  h2 { font-size: 20px; margin: 28px 0 8px; }
+  p, li { color: var(--ink); }
+  .lede, .meta { color: var(--muted); }
+  a { color: var(--blue); font-weight: 700; }
+  .card { background: var(--paper); border-radius: 16px; padding: 8px 22px 22px; box-shadow: 0 16px 40px -24px rgba(8,30,44,.6); }
+  ul { padding-left: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="./" aria-label="Sans Comic, back to the comic maker"><b>Sans</b> Comic</a>
+  <h1>Privacy</h1>
+  <p class="lede">The comic you write stays in this browser. This page says what that means.</p>
+  <p class="meta">16 November 2026</p>
+  <div class="card">
+    <h2>What stays on this device</h2>
+    <ul>
+      <li>Strips, the cast, uploaded backdrop photos, and the writing-desk size are saved in this browser's local storage.</li>
+      <li>They stay here until you delete them, clear the browser's site data, or export a project file.</li>
+      <li>A project file, PNG, GIF, PDF, or script is downloaded to your device. Sans Comic does not upload it.</li>
+    </ul>
+    <h2>What the server sees</h2>
+    <ul>
+      <li>The page, pictures, and fonts are files. Opening the site does not send your comic.</li>
+      <li>There is no account and no analytics in the app.</li>
+      <li>The host that serves the page, and Cloudflare in front of comic.tinyinternet.company, can see ordinary connection details such as IP address, browser, and the time of the request. Those logs are not your strip.</li>
+    </ul>
+    <h2>Draw together</h2>
+    <p>On this site the shared-room control is off. If a host turns it on, the lines you send in a room go to the other people in that room. The room does not keep its own copy. Each person still has the strip in their own browser.</p>
+    <h2>Pictures you upload</h2>
+    <p>A backdrop photo is cropped on this device and stored with the strip. It is not sent anywhere unless you export a project file and share that file yourself.</p>
+    <h2>Source</h2>
+    <p>The project is <a href="https://github.com/Manaiakalani/sans-comic">Manaiakalani/sans-comic</a> on GitHub. Characters and backdrops are by Jim Woodring, from the Comic Chat source Microsoft released under the MIT License. Copyright © Microsoft Corporation.</p>
+    <p><a href="./">Back to the comic maker</a></p>
+  </div>
+</main>
+</body>
+</html>
