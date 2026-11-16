@@ -88,7 +88,7 @@ The comic maker is published at [comic.tinyinternet.company](https://comic.tinyi
   Portraits for the cast chips come from one shared sheet, `art/faces.png`.
 
 Drawing, lettering and export do not need a network connection. A shared room still needs a room
-service from the page host. What the page stores, and what it does not send, is written at
+service from the page host. What the page stores is written at
 `privacy.html`. The source repository is
 [Manaiakalani/sans-comic](https://github.com/Manaiakalani/sans-comic).
 
