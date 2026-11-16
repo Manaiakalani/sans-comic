@@ -92,6 +92,39 @@ test('the same speaker starts the next panel', () => {
   assert.deepEqual(panels[1].lines.map(item => item.id), ['c']);
 });
 
+test('sheet columns follow panels per row, and auto matches the PNG', () => {
+  assert.equal(FP.sheetCols({ perRow: 3 }, 5), 3);
+  assert.equal(FP.sheetCols({ perRow: 4 }, 2), 2);
+  assert.equal(FP.sheetCols({ perRow: 2 }, 5), 2);
+  assert.equal(FP.sheetCols({}, 1), 1);
+  assert.equal(FP.sheetCols({}, 3), 3);
+  assert.equal(FP.sheetCols({}, 4), 2);
+  assert.equal(FP.sheetCols({ perRow: 'auto' }, 6), 3);
+});
+
+test('a pasted chat accepts a name on its own line', () => {
+  const colon = line => {
+    const m = String(line).match(/^([^:]{1,28}?)\s*:\s+(.+)$/);
+    return m ? [m[1].trim(), m[2]] : null;
+  };
+  assert.deepEqual(FP.chatRows('Sam: hi there\nRiley: I am at practice', colon), [
+    ['Sam', 'hi there'],
+    ['Riley', 'I am at practice'],
+  ]);
+  assert.deepEqual(FP.chatRows('Sam\nhi, are you free tonight?\nRiley\nI am at practice until 8\nSam\nLOL same as every Thursday', colon), [
+    ['Sam', 'hi, are you free tonight?'],
+    ['Riley', 'I am at practice until 8'],
+    ['Sam', 'LOL same as every Thursday'],
+  ]);
+  assert.deepEqual(FP.chatRows('Sam\nhi there\nstill me', colon), [
+    ['Sam', 'hi there'],
+    ['Sam', 'still me'],
+  ]);
+  assert.deepEqual(FP.chatRows('Hello there friend, this is just a note.', colon), [
+    ['', 'Hello there friend, this is just a note.'],
+  ]);
+});
+
 test('an action is its own panel', () => {
   const panels = FP.layoutStrip({
     ...strip,

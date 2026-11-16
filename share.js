@@ -95,7 +95,7 @@ $('#gif-go').addEventListener('click', async e => {
   else { showPreview(blob); app.toast('Your GIF is in the preview. Press and hold it to keep it.'); }
 });
 
-/* PDF: pages to print, two panels across, the title on the first page. */
+/* PDF: pages to print, the same columns as the PNG, the title on the first page. */
 $('#pdf-go').addEventListener('click', async e => {
   const btn = e.currentTarget, panels = realPanels();
   if (!panels.length) return;
@@ -104,13 +104,14 @@ $('#pdf-go').addEventListener('click', async e => {
   await ready(panels);
   const letter = /^en-(US|CA)|^es-(MX|US)/i.test(navigator.language || '');
   const doc = new window.jspdf.jsPDF({ unit: 'pt', format: letter ? 'letter' : 'a4' });
-  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), m = 40, gap = 16, size = (W - 2 * m - gap) / 2;
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), m = 40, gap = 16;
+  const cols = FP.sheetCols(app.state, panels.length), size = (W - 2 * m - (cols - 1) * gap) / cols;
   const title = (app.state.title || '').trim(), cv = el('canvas', { width: 900, height: 900 }), ctx = cv.getContext('2d');
   let y = m;
   if (title) { doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.text(title, m, m + 18); y += 40; }
   const foot = () => { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90); doc.text('Characters by Jim Woodring, from Microsoft Comic Chat', m, H - 20); doc.setTextColor(0); };
   for (let i = 0; i < panels.length; i++) {
-    const col = i % 2;
+    const col = i % cols;
     if (col === 0 && i > 0) y += size + gap;
     if (col === 0 && y + size > H - m) { foot(); doc.addPage(); y = m; }
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 900, 900); FP.drawPanel(ctx, panels[i], 900);

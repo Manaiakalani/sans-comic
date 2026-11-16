@@ -173,7 +173,7 @@
 
 <dialog id="dlg-paste" class="sheet">
   <form method="dialog" class="sheet-head"><h2>Paste a chat</h2><button class="btn ghost" value="close">Cancel</button></form>
-  <p class="sheet-note">One message per line, written as <kbd>Name: message</kbd>. Each name gets a character.</p>
+  <p class="sheet-note">One message per line, written as <kbd>Name: message</kbd>. A name on its own line, with the message underneath, works too. Each name gets a character.</p>
   <textarea id="paste-text" rows="9" placeholder="Sam: hi, are you free tonight?&#10;Riley: I'm at practice until 8 :(&#10;Sam: LOL same as every Thursday"></textarea>
   <div class="sheet-foot">
     <label class="check"><input id="paste-new" type="checkbox" checked> <span>Start a new strip</span></label>
@@ -189,6 +189,8 @@
     <select id="panel-bg" class="select"></select>
   </div>
   <div class="sheet-foot">
+    <button id="panel-earlier" class="btn ghost" type="button">Earlier</button>
+    <button id="panel-later" class="btn ghost" type="button">Later</button>
     <button id="panel-read" class="btn ghost" type="button">Read from here</button>
     <button id="panel-save" class="btn ghost" type="button">Save this panel</button>
   </div>
@@ -201,7 +203,7 @@
     <div class="export-list">
       <div class="xrow"><div><strong>Image</strong><small>The whole strip as one picture.</small></div><div class="xbtns"><button id="png-share" class="btn solid" type="button" hidden>Share</button><button id="png-copy" class="btn ghost" type="button">Copy</button><button id="png-save" class="btn solid" type="button" data-needs-save>Save PNG</button></div></div>
       <div class="xrow"><div><strong>Animated GIF</strong><small>Plays panel by panel, balloons popping in.</small></div><div class="xbtns"><button id="gif-go" class="btn ghost" type="button">Save GIF</button></div></div>
-      <div class="xrow" data-needs-save><div><strong>PDF</strong><small>Pages to print, two panels across.</small></div><div class="xbtns"><button id="pdf-go" class="btn ghost" type="button">Save PDF</button></div></div>
+      <div class="xrow" data-needs-save><div><strong>PDF</strong><small>Pages to print, with the same columns as the strip.</small></div><div class="xbtns"><button id="pdf-go" class="btn ghost" type="button">Save PDF</button></div></div>
       <div class="xrow" data-needs-save><div><strong>Project file</strong><small>Reopen it later and keep editing, on any device.</small></div><div class="xbtns"><button id="project-save" class="btn ghost" type="button">Save file</button></div></div>
       <div class="xrow"><div><strong>Script</strong><small>Just the lines, as plain text.</small></div><div class="xbtns"><button id="script-copy" class="btn ghost" type="button">Copy</button><button id="script-save" class="btn ghost" type="button" data-needs-save>Save .txt</button></div></div>
     </div>
