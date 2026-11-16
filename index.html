@@ -60,6 +60,8 @@
       <form id="composer" class="composer" autocomplete="off">
         <p id="typing" class="typing" aria-live="polite"></p>
         <div id="slash" class="slash" role="listbox" aria-label="Commands" hidden></div>
+        <button id="btn-dock" class="btn ghost dock-size" type="button" aria-label="Narrow the writing desk">Narrow</button>
+        <button id="dock-who" class="dock-who" type="button" hidden>Speaker</button>
         <textarea id="text" rows="1" maxlength="260" placeholder="Say something…" aria-label="Line of dialogue. Type / for gestures and effects." aria-controls="slash" aria-autocomplete="list" aria-expanded="false" enterkeyhint="send"></textarea>
         <button class="btn solid send" type="submit">Draw it</button>
       </form>
@@ -222,11 +224,12 @@
     <dt><kbd>(thinking)</kbd> <kbd>~whisper~</kbd> <kbd>*action*</kbd></dt><dd>thought cloud, whisper, narration box</dd>
     <dt><kbd>/</kbd></dt><dd>gestures, dice (<kbd>/roll 2d6</kbd>), coins (<kbd>/flip</kbd>), sound effects (<kbd>/fx BOOM</kbd>)</dd>
     <dt>A name</dt><dd>say someone's name and you point at them</dd>
+    <dt><kbd>Name:</kbd></dt><dd>with Auto on, that character says the rest. Take turns still moves on when you leave the name off</dd>
   </dl>
   <h3 class="sub kbd-only">Keyboard</h3>
   <dl class="keys kbd-only">
     <dt><kbd>Enter</kbd></dt><dd>draw the line (<kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line)</dd>
-    <dt><kbd>Alt</kbd>+<kbd>1</kbd>-<kbd>6</kbd></dt><dd>switch speaker</dd>
+    <dt><kbd>Alt</kbd>+<kbd>1</kbd>-<kbd>6</kbd></dt><dd>pick a speaker, and turn Auto off</dd>
     <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></dt><dd>undo and redo, when the box is empty</dd>
     <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd></dt><dd>in Read: previous, next, play</dd>
   </dl>

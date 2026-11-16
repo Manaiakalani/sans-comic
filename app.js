@@ -16,7 +16,7 @@ const KEY = 'sans-comic-v1', KEY_LIB = 'sans-comic-lib-v1';
 const stored = (key, old) => { const v = localStorage.getItem(key); return v != null ? v : localStorage.getItem(old); };
 const clone = o => JSON.parse(JSON.stringify(o));
 const sample = () => ({
-  id: 'first', title: 'First strip', cast: ['anna', 'dan', 'xeno'], speaker: 'anna', bg: 'tone-yellow', caps: false, turns: true,
+  id: 'first', title: 'First strip', cast: ['anna', 'dan', 'xeno'], speaker: 'anna', autoWho: false, bg: 'tone-yellow', caps: false, turns: true,
   lines: [
     { id: 'a1', who: 'anna', text: 'Hi! Is this thing on?', kind: 'auto' },
     { id: 'a2', who: 'dan', text: 'You type it and it draws it. LOL', kind: 'auto' },
@@ -92,7 +92,14 @@ function paintPanelButton(b) {
   FP.drawPanel(cv.getContext('2d'), b._panel, b._px); cv._sig = b._sig;
 }
 function schedule() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; render(); }); } }
-function draftLine() { return { id: 'draft', who: state.speaker, text: textEl.value, kind: draft.kind, emo: draft.emo, gest: draft.gest, body: draft.body }; }
+function namedCandidates() { return state.cast.length < MAX_CAST ? FP.ART.chars.map(c => c.id) : state.cast; }
+// Auto reads a leading "Name:" as the speaker. Anything else keeps the turn rotation.
+function namedNow(text) { return state.autoWho ? FP.namedLine(text == null ? textEl.value : text, namedCandidates()) : null; }
+function activeSpeaker() { const named = namedNow(); return named ? named.id : state.speaker; }
+function draftLine() {
+  const named = namedNow();
+  return { id: 'draft', who: named ? named.id : state.speaker, text: named ? named.text : textEl.value, kind: draft.kind, emo: draft.emo, gest: draft.gest, body: draft.body };
+}
 function render() {
   const typed = textEl.value.trim(), partial = /^\/[a-z]*$/i.test(typed);   // a half-typed /command isn't a line yet
   panels = FP.layoutStrip(state, typed && !partial ? draftLine() : null);   // the line being typed shows up as a draft panel
@@ -151,7 +158,7 @@ function paintStage(cv, ch, pose, o) {
 }
 const anim = { pop: -1e9, talk: -1e9, raf: 0, key: '' };
 function stageTick(now) {
-  const ch = CH[state.speaker], x = FP.readLine(draftLine(), state), pose = FP.pickPose(ch, x.emo, x.inten, x.gest, 7, x.img, x.body);
+  const ch = CH[activeSpeaker()], x = FP.readLine(draftLine(), state), pose = FP.pickPose(ch, x.emo, x.inten, x.gest, 7, x.img, x.body);
   const key = ch.id + ':' + (pose.b ? pose.b[0] : pose.f[0] + '/' + pose.t[0]);
   if (key !== anim.key) { if (anim.key) anim.pop = now; anim.key = key; }
   const said = [x.emo !== E.NEUTRAL && VERB[x.emo], x.gest && GVERB[x.gest]].filter(Boolean);
@@ -213,8 +220,10 @@ function pick(label, spec, checked, onPick, badge) {
 }
 const TABS = [['moods', 'Mood'], ['gestures', 'Gesture'], ['kinds', 'Balloon']]; let tab = 'moods', autoThumbs = [];
 const KIND_NAMES = { say: 'Say', think: 'Think', whisper: 'Whisper', shout: 'Shout', action: 'Narrate', fx: 'Sound FX' };
+let poseWho = '';
 function renderPickers() {
-  const ch = CH[state.speaker], x = autoRead(), auto = FP.pickPose(ch, x.emo, x.inten, x.gest, 7), still = FP.pickPose(ch, E.NEUTRAL, 0, 0, 7);
+  const who = activeSpeaker(); poseWho = who;
+  const ch = CH[who], x = autoRead(), auto = FP.pickPose(ch, x.emo, x.inten, x.gest, 7), still = FP.pickPose(ch, E.NEUTRAL, 0, 0, 7);
   const moods = FP.moodsOf(ch), cur = draft.emo;
   const m = [pick('Auto', poseFace(ch, auto), !cur, () => { draft.emo = null; }),
              pick('Neutral', poseFace(ch, still), cur && cur.e === E.NEUTRAL, () => { draft.emo = { e: E.NEUTRAL, i: 0 }; })];
@@ -246,7 +255,7 @@ function renderPickers() {
   }));
 }
 function syncAuto() {   // while typing, the Auto chips show what the words are choosing
-  const ch = CH[state.speaker], x = autoRead(), auto = FP.pickPose(ch, x.emo, x.inten, x.gest, 7);
+  const ch = CH[activeSpeaker()], x = autoRead(), auto = FP.pickPose(ch, x.emo, x.inten, x.gest, 7);
   const specs = [poseFace(ch, auto), poseBody(ch, auto), { kind: x.kind }];
   autoThumbs.forEach((cv, n) => { if (cv && (cv._spec.i !== specs[n].i || cv._spec.kind !== specs[n].kind)) { cv._spec = specs[n]; paintThumb(cv); } });
 }
@@ -284,19 +293,31 @@ function seg(host, options, get, set, deco) {
 
 /* ================= cast chips and the composer ================= */
 const faceStyle = id => { const i = CH[id].idx; return `background-position:${(i % 8) / 7 * 100}% ${Math.floor(i / 8) / 3 * 100}%`; };
-function setSpeaker(id) { if (!state.cast.includes(id)) return; state.speaker = id; save(); renderCast(); resetDraft(); drawPreview(); schedule(); emit('speaker', id); }
+function setSpeaker(id) { if (!state.cast.includes(id)) return; state.autoWho = false; state.speaker = id; save(); renderCast(); resetDraft(); drawPreview(); schedule(); emit('speaker', id); }
+function setAutoWho(on) {
+  state.autoWho = !!on;
+  if (!textEl.value) textEl.placeholder = on ? 'Try: Dan: look over here' : 'Say something…';
+  save(); renderCast(); renderPickers(); drawPreview(); schedule();
+}
 function renderCast() {
   if (!state.cast.includes(state.speaker)) state.speaker = state.cast[0];
-  castEl.replaceChildren(...state.cast.map((id, n) => {
-    const b = el('button', { className: 'chip', type: 'button', title: `${CH[id].name} speaks${n < 6 ? ` (Alt+${n + 1})` : ''}` }, [el('span', { className: 'face', style: faceStyle(id) }), el('span', { className: 'nm', textContent: CH[id].name })]);
+  const who = activeSpeaker();
+  const auto = el('button', { className: 'chip auto', type: 'button', title: 'Auto reads a Name: at the start of the line. Take turns still rotates when you leave the name off.' }, [el('span', { className: 'face auto-mark', ariaHidden: 'true' }), el('span', { className: 'nm', textContent: 'Auto' })]);
+  auto.setAttribute('role', 'radio'); auto.setAttribute('aria-label', 'Auto character'); auto.setAttribute('aria-checked', String(!!state.autoWho));
+  auto.addEventListener('click', () => { setAutoWho(true); textEl.focus(); });
+  castEl.replaceChildren(auto, ...state.cast.map((id, n) => {
+    const b = el('button', { className: 'chip' + (state.autoWho && id === who ? ' live' : ''), type: 'button', title: `${CH[id].name} speaks${n < 6 ? ` (Alt+${n + 1})` : ''}` }, [el('span', { className: 'face', style: faceStyle(id) }), el('span', { className: 'nm', textContent: CH[id].name })]);
+    b.dataset.id = id;
     b.setAttribute('aria-label', CH[id].name);
     if (n < 6) b.append(el('kbd', { textContent: n + 1 }));
-    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(id === state.speaker));
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(!state.autoWho && id === state.speaker));
     b.addEventListener('click', () => { setSpeaker(id); textEl.focus(); });
     return b;
   }));
   state.cast.forEach(FP.atlas);
+  if (!state.cast.includes(who)) FP.atlas(who);
   fitCast();
+  paintDockWho();
 }
 function fitCast() { castEl.classList.remove('tight'); if (castEl.scrollWidth > castEl.clientWidth + 1) castEl.classList.add('tight'); fadeCast(); }
 // a soft fade on the right says the speaker row scrolls, until you reach its end
@@ -310,7 +331,7 @@ function autosize() { textEl.style.height = 'auto'; textEl.style.height = Math.m
 /* slash commands: type / to see the gestures this character has, plus dice, coins and sound effects */
 const slashEl = $('#slash'); let slashItems = [], slashAt = 0;
 function slashOptions(prefix) {
-  const ch = CH[state.speaker], gs = new Set(FP.gesturesOf(ch)), moods = FP.moodsOf(ch);
+  const ch = CH[activeSpeaker()], gs = new Set(FP.gesturesOf(ch)), moods = FP.moodsOf(ch);
   return FP.COMMANDS.filter(([name, c]) => name.startsWith(prefix) && (!c.g || gs.has(c.g)) && (!c.e || moods[c.e]));
 }
 function renderSlash() {
@@ -343,7 +364,15 @@ function expandAppCommand(text) {   // dice and coins are rolled once, when the 
   if (/^\/roll\b/i.test(text)) { toast('Write dice like /roll 2d6 or /roll d20+3.'); return null; }
   return text;
 }
-textEl.addEventListener('input', () => { autosize(); anim.talk = performance.now(); renderSlash(); syncAuto(); drawPreview(); schedule(); emit('typing', !!textEl.value.trim()); });
+function markSpeaker() {
+  const who = activeSpeaker();
+  $$('#cast .chip[data-id]').forEach(b => b.classList.toggle('live', !!state.autoWho && b.dataset.id === who));
+  if (!state.cast.includes(who)) FP.atlas(who);
+  if (who !== poseWho) { draft.emo = null; draft.gest = 'auto'; draft.kind = 'auto'; draft.body = null; renderPickers(); }
+  else syncAuto();
+  paintDockWho();
+}
+textEl.addEventListener('input', () => { autosize(); anim.talk = performance.now(); renderSlash(); markSpeaker(); drawPreview(); schedule(); emit('typing', !!textEl.value.trim()); });
 textEl.addEventListener('blur', () => { slashEl.hidden = true; });
 textEl.addEventListener('keydown', e => {
   if (!slashEl.hidden && slashItems.length) {
@@ -363,11 +392,23 @@ $('#composer').addEventListener('submit', e => {
   if (room.watching) return toast('You are watching this room. Ask its owner for edit access to join in.');
   const typed = textEl.value.trim();
   if (!typed) { textEl.focus(); return; }
-  const text = expandAppCommand(typed); if (text == null) return;
-  const line = { id: FP.uid(), who: state.speaker, text, kind: draft.kind, emo: draft.emo, gest: draft.gest === 'auto' ? null : draft.gest, body: draft.body, t: Date.now(), mine: true };
+  let who = state.speaker, body = typed, adopt = null;
+  if (state.autoWho) {
+    const named = FP.namedLine(typed, FP.ART.chars.map(c => c.id));
+    if (named) {
+      if (!state.cast.includes(named.id) && state.cast.length >= MAX_CAST) return toast(`Six is the limit. Remove someone before ${CH[named.id].name} can speak.`);
+      if (!named.text.trim()) { toast('Write the line after the name.'); textEl.focus(); return; }
+      who = named.id; body = named.text; if (!state.cast.includes(named.id)) adopt = named.id;
+    }
+  }
+  const text = expandAppCommand(body); if (text == null) return;
+  if (adopt) state.cast.push(adopt);
+  if (who !== state.speaker) state.speaker = who;
+  const line = { id: FP.uid(), who, text, kind: draft.kind, emo: draft.emo, gest: draft.gest === 'auto' ? null : draft.gest, body: draft.body, t: Date.now(), mine: true };
   redoStack.length = 0;
   advanceSpeaker();
-  textEl.value = ''; textEl.placeholder = TIPS[++tip % TIPS.length]; autosize(); slashEl.hidden = true;
+  tip++;
+  textEl.value = ''; textEl.placeholder = state.autoWho && tip % 3 === 0 ? 'Try: Dan: look over here' : TIPS[tip % TIPS.length]; autosize(); slashEl.hidden = true;
   resetDraft(); lastDraft = -1; addLines([line]); emit('typing', false);
   stageBtn.classList.remove('sent'); void stageBtn.offsetWidth; stageBtn.classList.add('sent');
   requestAnimationFrame(() => scroller.scrollTo({ top: scroller.scrollHeight, behavior: reduced() ? 'auto' : 'smooth' }));
@@ -417,7 +458,7 @@ function audition(id) {
 }
 function toggleCast(id) {
   if (state.cast.includes(id)) { if (state.cast.length === 1) return toast('Keep at least one character.'); state.cast = state.cast.filter(x => x !== id); }
-  else { if (state.cast.length >= MAX_CAST) return toast('Six is the limit. Remove someone first.'); state.cast.push(id); state.speaker = id; emit('speaker', id); }
+  else { if (state.cast.length >= MAX_CAST) return toast('Six is the limit. Remove someone first.'); state.cast.push(id); state.autoWho = false; state.speaker = id; emit('speaker', id); }
   save(); renderGallery(); renderCast(); resetDraft(); drawPreview(); schedule(); audition(id);
 }
 function renderGallery() {
@@ -434,7 +475,7 @@ function renderGallery() {
 }
 $('#aud-toggle').addEventListener('click', () => aud.id && toggleCast(aud.id));
 $('#btn-cast').addEventListener('click', () => {
-  renderGallery(); open('#dlg-cast'); audition(state.speaker);
+  renderGallery(); open('#dlg-cast'); audition(activeSpeaker());
   clearInterval(aud.timer);
   aud.timer = setInterval(() => { if (aud.seq.length < 2) return; aud.at = (aud.at + 1) % aud.seq.length; aud.pop = performance.now(); $('#aud-mood').textContent = aud.seq[aud.at].label; audPaint(aud.pop); }, 1150);
 });
@@ -639,9 +680,39 @@ else {   // on an ordinary web page (your own site, GitHub Pages) files save thr
   } };
 }
 
+/* ================= writing desk: full, narrow, or just the line ================= */
+const DOCK_KEY = 'sans-comic-dock';
+const DOCK_NEXT = { full: 'narrow', narrow: 'min', min: 'full' };
+const DOCK_LABEL = { full: 'Narrow', narrow: 'Minimize', min: 'Show' };
+const DOCK_TIP = { full: 'Narrow the writing desk', narrow: 'Minimize the writing desk', min: 'Show the writing desk' };
+function paintDockWho() {
+  const host = $('#dock-who'); if (!host) return;
+  const ch = CH[activeSpeaker()];
+  host.hidden = document.body.dataset.dock !== 'min';
+  host.replaceChildren(el('span', { className: 'face', style: faceStyle(ch.id) }), el('span', { className: 'nm', textContent: state.autoWho ? `Auto, ${ch.name}` : ch.name }));
+  host.setAttribute('aria-label', `Show the writing desk. ${ch.name} is speaking.`);
+}
+function setDock(mode) {
+  if (mode !== 'narrow' && mode !== 'min') mode = 'full';
+  document.body.dataset.dock = mode;
+  try { localStorage.setItem(DOCK_KEY, mode); } catch (e) { /* storage unavailable */ }
+  const btn = $('#btn-dock');
+  btn.textContent = DOCK_LABEL[mode];
+  btn.setAttribute('aria-label', DOCK_TIP[mode]);
+  btn.title = DOCK_TIP[mode];
+  if (mode === 'min') setTray(false);
+  paintDockWho();
+  drawPreview();
+}
+$('#btn-dock').addEventListener('click', () => setDock(DOCK_NEXT[document.body.dataset.dock] || 'narrow'));
+$('#dock-who').addEventListener('click', () => { setDock('full'); textEl.focus(); });
+
 /* ================= start ================= */
 renderCast(); autosize(); resetDraft(); applyCols(); applyPage(); loadHand();
 setTray(innerWidth >= 840 && innerHeight >= 720);
+let storedDock = 'full';
+try { storedDock = localStorage.getItem(DOCK_KEY) || 'full'; } catch (e) { /* storage unavailable */ }
+setDock(storedDock);
 render();
 if (document.fonts && document.fonts.load) {
   const again = () => { renderPickers(); schedule(); };
