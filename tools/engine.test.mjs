@@ -64,6 +64,21 @@ test('a name in the cast points at that character', () => {
   assert.equal(read.gest, FP.E.POINT_YOU);
 });
 
+test('a leading Name: is the speaker, and a name later in the line still points', () => {
+  const ids = ['anna', 'dan', 'xeno', 'tongtyed'];
+  assert.equal(FP.namedLine('Dan, look at this', ids), null);
+  assert.equal(FP.namedLine('hello Dan', ids), null);
+  assert.equal(FP.namedLine('Hi: there', ids), null);
+  assert.deepEqual(FP.namedLine('  xeno: hi there  ', ids), { id: 'xeno', text: 'hi there' });
+  assert.deepEqual(FP.namedLine('Tongue-Tyed: hush', ids), { id: 'tongtyed', text: 'hush' });
+  const named = FP.namedLine('Anna: Dan, look at this', ids);
+  assert.deepEqual(named, { id: 'anna', text: 'Dan, look at this' });
+  const read = FP.readLine({ who: named.id, text: named.text, kind: 'auto' }, strip);
+  assert.equal(read.mention, 'dan');
+  assert.equal(read.gest, FP.E.POINT_YOU);
+  assert.equal(FP.namedLine('Jordan: hello', ['anna', 'dan']), null);
+});
+
 test('the same speaker starts the next panel', () => {
   const panels = FP.layoutStrip({
     ...strip,

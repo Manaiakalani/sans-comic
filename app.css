@@ -456,3 +456,51 @@ kbd { font: 600 0.86em var(--font-ui); background: var(--blue-soft); border-radi
   .panel.new, .stage.sent canvas { animation: none; }
   .toast { transition: none; }
 }
+
+/* ---------- writing desk size ----------
+   Full is the desk above. Narrow shortens it. Minimized keeps the line and Draw it. */
+.dock-size { align-self: center; flex: none; padding: 0 12px; }
+.dock-who { align-self: center; flex: none; align-items: center; gap: 6px; border: 1.5px solid var(--edge); background: var(--surface); border-radius: 999px; padding: 3px 10px 3px 3px; min-height: var(--tap); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.dock-who:not([hidden]) { display: inline-flex; }
+.dock-who .face { width: 28px; height: 28px; }
+.face.auto-mark { background-image: none; background-color: var(--blue-soft); color: var(--ink); display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; }
+.face.auto-mark::before { content: "A"; }
+.chip.auto { border-style: dashed; }
+.chip.auto[aria-checked="true"] { border-style: solid; }
+.chip.live { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue); }
+.cast .chip.live[aria-checked="false"] .nm { display: inline; }
+.cast .chip.live[aria-checked="false"] { padding: 3px 10px 3px 3px; }
+body[data-dock="narrow"] .dock { padding-top: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+body[data-dock="narrow"] .dock-in { row-gap: 6px; }
+body[data-dock="narrow"] .tray:not([hidden]) {
+  position: absolute; z-index: 6; left: 0; right: 0; bottom: calc(100% - 1px);
+  max-height: min(48dvh, 340px); overflow: auto; padding: 8px 10px 10px;
+  background: var(--surface); border: 1px solid var(--edge); border-bottom: 0;
+  box-shadow: 0 -16px 36px -20px rgba(8,30,44,.45);
+}
+@media (min-width: 600px) and (min-height: 561px) {
+  body[data-dock="narrow"] .dock-in { grid-template-columns: 96px minmax(0, 1fr); }
+  body[data-dock="narrow"] .stage { height: 72px; min-height: 0; align-self: start; }
+}
+@media (max-width: 599px), (max-height: 560px) {
+  body[data-dock="narrow"] .stage { display: none; }
+  body[data-dock="narrow"] .dock-in { grid-template-columns: minmax(0, 1fr); grid-template-areas: "cast" "form"; }
+}
+body[data-dock="min"] .stage,
+body[data-dock="min"] .tray,
+body[data-dock="min"] .cast-row { display: none !important; }
+body[data-dock="min"] .dock { padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+body[data-dock="min"] .dock-in { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "form" !important; }
+body[data-dock="min"] .composer { flex-wrap: wrap; row-gap: 6px; }
+body[data-dock="min"] .dock-who { max-width: calc(100% - 88px); min-width: 0; }
+body[data-dock="min"] .dock-who .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+body[data-dock="min"] #text { flex: 1 1 8rem; min-height: 44px; max-height: 88px; }
+body[data-dock="min"] .send { height: 44px; }
+@media (min-height: 561px) {
+  body[data-dock="narrow"] .toast { bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+  body[data-dock="min"] .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-height: 560px) and (min-width: 860px) {
+  body[data-dock="narrow"] .app { grid-template-columns: minmax(0, 1fr) min(300px, 34vw); }
+  body[data-dock="min"] .app { grid-template-columns: minmax(0, 1fr) min(230px, 28vw); }
+}
