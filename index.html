@@ -6,7 +6,19 @@
 <meta name="theme-color" content="#f8fbfc" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1b2228" media="(prefers-color-scheme: dark)">
 <title>Sans Comic</title>
+<meta name="description" content="Type a line, get a comic panel. Sans Comic turns a conversation into a strip, using the characters and backdrops from Microsoft Comic Chat.">
+<meta property="og:title" content="Sans Comic">
+<meta property="og:description" content="Type a line, get a comic panel.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://comic.tinyinternet.company/">
+<meta property="og:image" content="https://comic.tinyinternet.company/share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="558">
+<meta property="og:image:alt" content="How one line becomes a panel">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="site.webmanifest">
 <script
     src="https://analytics.manaiakalani.info/api/script.js?siteId=44f544a123ae"
     defer
@@ -85,6 +97,11 @@
     </div>
   </div>
   <p class="sheet-note">Tap a face to watch the audition and add them. Up to six in the cast. All drawn by Jim Woodring for Microsoft Comic Chat.</p>
+  <label class="cast-find">
+    <span class="field-label">Find a character</span>
+    <input id="cast-find" type="search" placeholder="Search by name" autocomplete="off" enterkeyhint="search" aria-label="Find a character">
+  </label>
+  <p id="cast-empty" class="gallery-empty" hidden>No character by that name.</p>
   <div id="gallery" class="gallery"></div>
 </dialog>
 
@@ -138,9 +155,13 @@
 <dialog id="dlg-lib" class="sheet wide">
   <form method="dialog" class="sheet-head"><h2>My comics</h2><button class="btn ghost" value="close">Done</button></form>
   <div class="sheet-foot top">
-    <span class="sheet-note">Every strip saves itself as you write. It stays in this browser until you export a project file.</span>
-    <button class="btn ghost" type="button" data-act="openfile">Open a project file</button>
-    <button id="lib-new" class="btn solid" type="button">New strip</button>
+    <span class="sheet-note">Every strip saves itself as you write. It stays in this browser until you save a backup or a project file.</span>
+    <p id="lib-hint" class="sheet-note" hidden>These comics are only in this browser. Save a backup to keep a copy.</p>
+    <div class="more-actions">
+      <button id="lib-backup" class="btn ghost" type="button">Save a backup</button>
+      <button class="btn ghost" type="button" data-act="openfile">Open a project file</button>
+      <button id="lib-new" class="btn solid" type="button">New strip</button>
+    </div>
   </div>
   <div id="lib" class="lib"></div>
 </dialog>
@@ -173,7 +194,7 @@
   <div class="export-grid">
     <div class="export-view"><img id="export-img" alt="Your comic strip"></div>
     <div class="export-list">
-      <div class="xrow"><div><strong>Image</strong><small>The whole strip as one picture.</small></div><div class="xbtns"><button id="png-copy" class="btn ghost" type="button">Copy</button><button id="png-save" class="btn solid" type="button" data-needs-save>Save PNG</button></div></div>
+      <div class="xrow"><div><strong>Image</strong><small>The whole strip as one picture.</small></div><div class="xbtns"><button id="png-share" class="btn solid" type="button" hidden>Share</button><button id="png-copy" class="btn ghost" type="button">Copy</button><button id="png-save" class="btn solid" type="button" data-needs-save>Save PNG</button></div></div>
       <div class="xrow"><div><strong>Animated GIF</strong><small>Plays panel by panel, balloons popping in.</small></div><div class="xbtns"><button id="gif-go" class="btn ghost" type="button">Save GIF</button></div></div>
       <div class="xrow" data-needs-save><div><strong>PDF</strong><small>Pages to print, two panels across.</small></div><div class="xbtns"><button id="pdf-go" class="btn ghost" type="button">Save PDF</button></div></div>
       <div class="xrow" data-needs-save><div><strong>Project file</strong><small>Reopen it later and keep editing, on any device.</small></div><div class="xbtns"><button id="project-save" class="btn ghost" type="button">Save file</button></div></div>
@@ -272,7 +293,7 @@
     <dl class="keys">
       <dt><kbd>Enter</kbd></dt><dd>draw the line (<kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line)</dd>
       <dt><kbd>Alt</kbd>+<kbd>1</kbd>-<kbd>6</kbd></dt><dd>pick a speaker, and turn Auto off</dd>
-      <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></dt><dd>undo and redo, when the box is empty</dd>
+      <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></dt><dd>undo and redo the last change, when the line box is empty</dd>
       <dt><kbd>←</kbd> <kbd>→</kbd> <kbd>Space</kbd></dt><dd>in Read: previous, next, play</dd>
     </dl>
   </section>

@@ -48,34 +48,114 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) flush
 
 /* ================= edits (one place, so undo, redo and shared rooms see every change) ================= */
 const MAX_CAST = 6;
-const redoStack = [];
-function addLines(lines, { local = true } = {}) {
+const HIST_MAX = 20;
+const past = [], future = [];
+let recording = true, coalesce = null;
+function snap() {
+  return {
+    lines: clone(state.lines), cast: state.cast.slice(), speaker: state.speaker, autoWho: !!state.autoWho,
+    bg: state.bg, bgColor: state.bgColor || '', customBg: state.customBg || '', customBgKey: state.customBgKey || '',
+    caps: !!state.caps, turns: !!state.turns, font: state.font || 'classic', frame: state.frame || 'plain',
+    sides: state.sides !== false, tags: !!state.tags, perRow: state.perRow || 'auto',
+    pageTint: state.pageTint || 'auto', pagePattern: state.pagePattern || 'dots', title: state.title || '',
+  };
+}
+function paintHist() {
+  $$('[data-act="undo"]').forEach(b => { b.disabled = past.length === 0; });
+  $$('[data-act="redo"]').forEach(b => { b.disabled = future.length === 0; });
+}
+function remember(token) {
+  if (!recording) return;
+  if (token && token === coalesce) return;
+  past.push(snap());
+  if (past.length > HIST_MAX) past.shift();
+  future.length = 0;
+  coalesce = token || null;
+  paintHist();
+}
+function forgetHistory() { past.length = 0; future.length = 0; coalesce = null; paintHist(); }
+function restore(target) {
+  recording = false;
+  coalesce = null;
+  try {
+    const nextIds = new Set(target.lines.map(l => l.id));
+    for (const l of state.lines.slice()) if (!nextIds.has(l.id)) removeLine(l.id);
+    for (const src of target.lines) {
+      if (!state.lines.some(l => l.id === src.id)) addLines([clone(src)], { record: false });
+      else {
+        const i = state.lines.findIndex(l => l.id === src.id), prev = JSON.stringify(state.lines[i]);
+        state.lines[i] = clone(src);
+        if (JSON.stringify(state.lines[i]) !== prev) emit('line-updated', state.lines[i]);
+      }
+    }
+    const order = new Map(target.lines.map((l, i) => [l.id, i]));
+    state.lines.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    const speakerChanged = state.speaker !== target.speaker;
+    state.cast = target.cast.slice();
+    state.speaker = target.speaker;
+    state.autoWho = !!target.autoWho;
+    state.bg = target.bg;
+    state.bgColor = target.bgColor || undefined;
+    state.customBg = target.customBg || undefined;
+    state.customBgKey = target.customBgKey || undefined;
+    state.caps = !!target.caps;
+    state.turns = !!target.turns;
+    state.font = target.font;
+    state.frame = target.frame;
+    state.sides = target.sides;
+    state.tags = !!target.tags;
+    state.perRow = target.perRow === 'auto' ? undefined : target.perRow;
+    state.pageTint = target.pageTint === 'auto' ? undefined : target.pageTint;
+    state.pagePattern = target.pagePattern === 'dots' ? undefined : target.pagePattern;
+    state.title = target.title || '';
+    $('#title').value = $('#title-m').value = state.title;
+    $('#turns').checked = $('#turns-m').checked = !!state.turns;
+    save(); applyPage(); loadHand(); segPaints.forEach(fn => fn()); renderCast(); resetDraft(); render();
+    if ($('#dlg-panel').open && editing) renderPanelEditor();
+    if ($('#dlg-look').open) { renderLook(); renderTints(); }
+    if (speakerChanged) emit('speaker', state.speaker);
+  } finally { recording = true; }
+  paintHist();
+}
+function addLines(lines, { local = true, record = true } = {}) {
+  if (local && record) remember();
   for (const l of lines) if (!state.lines.some(x => x.id === l.id)) state.lines.push(l);
   if (!local) state.lines.sort((a, b) => (a.t || 0) - (b.t || 0) || (a.id < b.id ? -1 : 1));   // lines from a room arrive in any order
   lines.forEach(l => { if (CH[l.who] && !state.cast.includes(l.who) && state.cast.length < MAX_CAST) state.cast.push(l.who); });
   save(); renderCast(); render();
   if (local) emit('lines-added', lines);
+  else forgetHistory();
 }
 function removeLine(id, { local = true } = {}) {
   const i = state.lines.findIndex(l => l.id === id); if (i < 0) return null;
+  if (local) remember();
   const [gone] = state.lines.splice(i, 1);
   save(); render();
   if (local) emit('line-removed', gone);
+  else forgetHistory();
   return gone;
 }
-function updateLine(id, patch, { local = true } = {}) {
+function updateLine(id, patch, { local = true, token = null } = {}) {
   const l = state.lines.find(x => x.id === id); if (!l) return;
-  Object.assign(l, patch); save(); schedule();
-  if (local) emit('line-updated', l);
+  const next = Object.assign({}, l, patch);
+  if (JSON.stringify(next) === JSON.stringify(l)) return;
+  if (!local) { Object.assign(l, patch); save(); schedule(); forgetHistory(); return; }
+  remember(token);
+  Object.assign(l, patch); save(); schedule(); emit('line-updated', l);
 }
 function undo() {
-  const mine = [...state.lines].reverse().find(l => !room.active || l.mine);
-  if (!mine) return toast(room.active ? 'Nothing of yours to undo.' : 'Nothing to undo.');
-  redoStack.push(removeLine(mine.id)); toast('Removed the last line. Redo puts it back.');
+  if (!past.length) return toast('Nothing to undo.');
+  const current = snap();
+  future.push(current);
+  restore(past.pop());
+  toast('Undone.');
 }
 function redo() {
-  const l = redoStack.pop(); if (!l) return toast('Nothing to redo.');
-  addLines([l]);
+  if (!future.length) return toast('Nothing to redo.');
+  past.push(snap());
+  if (past.length > HIST_MAX) past.shift();
+  restore(future.pop());
+  toast('Redone.');
 }
 
 /* ================= strip view ================= */
@@ -125,7 +205,7 @@ function render() {
   if (di >= 0 && di !== lastDraft) stripEl.children[di].scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
   lastDraft = di; lastCount = panels.length;
   $('#empty').hidden = panels.length > 0;
-  $$('[data-act="undo"]').forEach(b => { b.disabled = !state.lines.length; });
+  paintHist();
   $$('canvas.th').forEach(c => { if (!c._done) paintThumb(c); });
   if ($('#dlg-lib').open) $$('#lib canvas').forEach(cv => { if (cv._painted) paintLibThumb(cv); });
   applyCols();
@@ -286,7 +366,7 @@ function seg(host, options, get, set, deco) {
     const b = el('button', { type: 'button', textContent: label });
     b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(get() === val));
     if (deco) deco(b, val);
-    b.addEventListener('click', () => { set(val); paint(); });
+    b.addEventListener('click', () => { if (get() === val) return; set(val); paint(); });
     return b;
   }));
   paint(); segPaints.push(paint); return paint;
@@ -403,14 +483,14 @@ $('#composer').addEventListener('submit', e => {
     }
   }
   const text = expandAppCommand(body); if (text == null) return;
+  remember();
   if (adopt) state.cast.push(adopt);
   if (who !== state.speaker) state.speaker = who;
   const line = { id: FP.uid(), who, text, kind: draft.kind, emo: draft.emo, gest: draft.gest === 'auto' ? null : draft.gest, body: draft.body, t: Date.now(), mine: true };
-  redoStack.length = 0;
   advanceSpeaker();
   tip++;
   textEl.value = ''; textEl.placeholder = state.autoWho && tip % 3 === 0 ? 'Try: Dan: look over here' : TIPS[tip % TIPS.length]; autosize(); slashEl.hidden = true;
-  resetDraft(); lastDraft = -1; addLines([line]); emit('typing', false);
+  resetDraft(); lastDraft = -1; addLines([line], { record: false }); emit('typing', false);
   stageBtn.classList.remove('sent'); void stageBtn.offsetWidth; stageBtn.classList.add('sent');
   requestAnimationFrame(() => scroller.scrollTo({ top: scroller.scrollHeight, behavior: reduced() ? 'auto' : 'smooth' }));
   textEl.focus();
@@ -420,12 +500,12 @@ function advanceSpeaker() {
   const i = state.cast.indexOf(state.speaker);
   state.speaker = state.cast[(i < 0 ? 0 : i + 1) % state.cast.length];
 }
-const setTurns = v => { state.turns = v; $('#turns').checked = $('#turns-m').checked = v; save(); };
+const setTurns = v => { if (!!state.turns === !!v) return; remember(); state.turns = v; $('#turns').checked = $('#turns-m').checked = v; save(); };
 $('#turns').checked = $('#turns-m').checked = !!state.turns;
 $('#turns').addEventListener('change', e => setTurns(e.target.checked));
 $('#turns-m').addEventListener('change', e => setTurns(e.target.checked));
 $('#title').value = state.title || '';
-const setTitle = v => { state.title = v; $('#title').value = v; $('#title-m').value = v; save(); emit('title', v); };
+const setTitle = v => { if ((state.title || '') === v) return; remember('title'); state.title = v; $('#title').value = v; $('#title-m').value = v; save(); emit('title', v); };
 $('#title').addEventListener('input', e => setTitle(e.target.value));
 $('#title-m').addEventListener('input', e => setTitle(e.target.value));
 $('#title-m').value = state.title || '';
@@ -458,15 +538,19 @@ function audition(id) {
   FP.atlas(id); audPaint(performance.now());
 }
 function toggleCast(id) {
-  if (state.cast.includes(id)) { if (state.cast.length === 1) return toast('Keep at least one character.'); state.cast = state.cast.filter(x => x !== id); }
-  else { if (state.cast.length >= MAX_CAST) return toast('Six is the limit. Remove someone first.'); state.cast.push(id); state.autoWho = false; state.speaker = id; emit('speaker', id); }
+  if (state.cast.includes(id)) { if (state.cast.length === 1) return toast('Keep at least one character.'); remember(); state.cast = state.cast.filter(x => x !== id); }
+  else { if (state.cast.length >= MAX_CAST) return toast('Six is the limit. Remove someone first.'); remember(); state.cast.push(id); state.autoWho = false; state.speaker = id; emit('speaker', id); }
   save(); renderGallery(); renderCast(); resetDraft(); drawPreview(); schedule(); audition(id);
 }
 function renderGallery() {
-  $('#gallery').replaceChildren(...ART.chars.map(c => {
+  const q = ($('#cast-find') && $('#cast-find').value || '').trim().toLowerCase();
+  const chars = ART.chars.filter(c => !q || c.name.toLowerCase().includes(q) || c.id.includes(q));
+  const empty = $('#cast-empty'); if (empty) empty.hidden = chars.length > 0;
+  $('#gallery').replaceChildren(...chars.map(c => {
     const n = state.cast.indexOf(c.id), poses = c.f.length + c.t.length + c.b.length;
     const b = el('button', { type: 'button' }, [el('span', { className: 'face', style: faceStyle(c.id) }), c.name, el('small', { textContent: poses === 1 ? 'one pose' : n >= 0 ? 'in the cast' : ' ' })]);
     b.dataset.id = c.id; b.setAttribute('aria-pressed', String(n >= 0));
+    b.classList.toggle('focus', aud.id === c.id);
     if (n >= 0) b.append(el('i', { className: 'badge', textContent: n + 1 }));
     b.addEventListener('click', () => toggleCast(c.id));
     b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') queueAudition(c.id); });
@@ -475,7 +559,9 @@ function renderGallery() {
   }));
 }
 $('#aud-toggle').addEventListener('click', () => aud.id && toggleCast(aud.id));
+$('#cast-find').addEventListener('input', () => renderGallery());
 $('#btn-cast').addEventListener('click', () => {
+  $('#cast-find').value = '';
   renderGallery(); open('#dlg-cast'); audition(activeSpeaker());
   clearInterval(aud.timer);
   aud.timer = setInterval(() => { if (aud.seq.length < 2) return; aud.at = (aud.at + 1) % aud.seq.length; aud.pop = performance.now(); $('#aud-mood').textContent = aud.seq[aud.at].label; audPaint(aud.pop); }, 1150);
@@ -493,13 +579,13 @@ function renderLook() {
     if (drawn) { const c = thumb.getContext('2d'); c.scale(0.16, 0.16); FP.drawBackdrop(c, id, state); }
     const b = el('button', { type: 'button' }, [thumb, name]);
     b.setAttribute('aria-pressed', String(state.bg === id));
-    b.addEventListener('click', () => { state.bg = id; save(); renderLook(); render(); emit('style'); });
+    b.addEventListener('click', () => { if (state.bg === id) return; remember(); state.bg = id; save(); renderLook(); render(); emit('style'); });
     return b;
   }));
   $('#bg-color').value = state.bgColor || '#bfe3f5';
   $('#bg-upload').textContent = state.customBg ? 'Change the photo' : 'Upload a photo';
 }
-$('#bg-color').addEventListener('input', e => { state.bgColor = e.target.value; state.bg = 'color'; save(); renderLook(); render(); emit('style'); });
+$('#bg-color').addEventListener('input', e => { remember('bg-color'); state.bgColor = e.target.value; state.bg = 'color'; save(); renderLook(); render(); emit('style'); });
 $('#bg-upload').addEventListener('click', () => $('#bg-file').click());
 $('#bg-file').addEventListener('change', e => {
   const file = e.target.files[0]; e.target.value = '';
@@ -508,6 +594,7 @@ $('#bg-file').addEventListener('change', e => {
   img.onload = () => {   // crop to a square and shrink, so it fits in the browser's storage
     const c = el('canvas', { width: 800, height: 800 }), side = Math.min(img.naturalWidth, img.naturalHeight);
     c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 800, 800);
+    remember();
     state.customBg = c.toDataURL('image/jpeg', 0.82); state.customBgKey = FP.uid(); state.bg = 'custom';
     URL.revokeObjectURL(url); save(); renderLook(); render();
   };
@@ -523,11 +610,11 @@ function applyCols() {
   stripEl.classList.toggle('many', n >= 4);
 }
 function loadHand() { const h = FP.handOf(state); if (document.fonts && document.fonts.load) document.fonts.load(`${h[2]} 40px ${h[1]}`).then(schedule, () => {}); }
-const styled = fn => v => { fn(v); save(); render(); emit('style'); };
+const styled = fn => v => { remember(); fn(v); save(); render(); emit('style'); };
 seg($('#hands'), Object.entries(HANDS).map(([id, h]) => [id, h[0]]), () => state.font || 'classic', styled(v => { state.font = v; loadHand(); }), (b, id) => { b.style.fontFamily = HANDS[id][1]; b.style.fontWeight = HANDS[id][2]; b.style.fontSize = '15px'; });
 seg($('#caps'), [[false, 'Mixed case'], [true, 'ALL CAPS']], () => !!state.caps, styled(v => { state.caps = v; }));
 seg($('#frames'), [['plain', 'Plain'], ['rough', 'Rough'], ['none', 'None']], () => state.frame || 'plain', styled(v => { state.frame = v; }));
-seg($('#perrow'), [['auto', 'Auto'], [2, '2'], [3, '3'], [4, '4']], () => +state.perRow > 1 ? +state.perRow : 'auto', v => { state.perRow = v; save(); applyCols(); schedule(); });
+seg($('#perrow'), [['auto', 'Auto'], [2, '2'], [3, '3'], [4, '4']], () => +state.perRow > 1 ? +state.perRow : 'auto', v => { remember(); state.perRow = v; save(); applyCols(); schedule(); });
 seg($('#sides'), [[true, 'Keep sides'], [false, 'Swap freely']], () => state.sides !== false, styled(v => { state.sides = v; }));
 seg($('#tags'), [[false, 'Off'], [true, 'Show names']], () => !!state.tags, styled(v => { state.tags = v; }));
 const LOOKS = [['look-panels', 'Panel backdrop'], ['look-page', 'Page background'], ['look-drawing', 'Drawing']]; let lookTab = 'look-panels';
@@ -546,11 +633,11 @@ function renderTints() {
   $('#tints').replaceChildren(...TINTS.map(([id, name, fill]) => {
     const b = el('button', { type: 'button' }, [el('i', { style: 'background:' + fill }), name]);
     b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String((state.pageTint || 'auto') === id));
-    b.addEventListener('click', () => { state.pageTint = id; save(); applyPage(); renderTints(); });
+    b.addEventListener('click', () => { if ((state.pageTint || 'auto') === id) return; remember(); state.pageTint = id; save(); applyPage(); renderTints(); });
     return b;
   }));
 }
-seg($('#patterns'), [['dots', 'Halftone'], ['grid', 'Grid'], ['stripes', 'Stripes'], ['plain', 'Plain']], () => state.pagePattern || 'dots', v => { state.pagePattern = v; save(); applyPage(); });
+seg($('#patterns'), [['dots', 'Halftone'], ['grid', 'Grid'], ['stripes', 'Stripes'], ['plain', 'Plain']], () => state.pagePattern || 'dots', v => { remember(); state.pagePattern = v; save(); applyPage(); });
 ACTS.look = () => { renderLook(); renderTints(); renderLookTabs(); open('#dlg-look'); };
 
 // paste a chat
@@ -568,10 +655,12 @@ function importChat(raw, fresh) {
   names.forEach((nm, i) => { if (!map[nm]) { const id = pool.find(c => !taken.has(c)) || pool[i % pool.length]; map[nm] = id; taken.add(id); } });
   const t0 = Date.now(), lines = rows.map(([nm, text], i) => ({ id: FP.uid(), who: map[nm], text: text.slice(0, 260), kind: 'auto', t: t0 + i, mine: true }));
   const cast = [...new Set(lines.map(l => l.who))].slice(0, MAX_CAST);
-  if (fresh) { newStrip({ quiet: true }); state.cast = cast; }
+  if (fresh) newStrip({ quiet: true });
+  remember();
+  if (fresh) state.cast = cast;
   else state.cast = [...new Set([...state.cast, ...cast])].slice(0, MAX_CAST);
   state.speaker = state.cast[0];
-  lastCount = fresh ? 0 : lastCount; addLines(lines);
+  lastCount = fresh ? 0 : lastCount; addLines(lines, { record: false });
   return lines.length;
 }
 ACTS.paste = () => { open('#dlg-paste'); $('#paste-text').focus(); };
@@ -593,7 +682,9 @@ function openPanel(i) {
   renderPanelEditor(); open('#dlg-panel');
 }
 function renderPanelEditor() {
-  const host = $('#panel-lines'), lines = editing.lines.filter(l => state.lines.includes(l));
+  const host = $('#panel-lines');
+  const lines = editing.lines.map(l => state.lines.find(x => x.id === l.id)).filter(Boolean);
+  editing.lines = lines;
   if (!lines.length) return close('#dlg-panel');
   host.replaceChildren(...lines.map(line => {
     const who = el('select', { ariaLabel: 'Speaker' }, [...new Set([...state.cast, line.who])].map(id => el('option', { value: id, textContent: CH[id].name, selected: id === line.who })));
@@ -603,8 +694,8 @@ function renderPanelEditor() {
     const down = el('button', { type: 'button', className: 'btn ghost icon-btn', textContent: '↓', title: 'Move later', ariaLabel: 'Move later', disabled: idx === state.lines.length - 1 });
     const del = el('button', { type: 'button', className: 'btn danger', textContent: 'Delete' });
     who.addEventListener('change', () => updateLine(line.id, { who: who.value }));
-    input.addEventListener('input', () => updateLine(line.id, { text: input.value }));
-    const move = d => { const i = state.lines.indexOf(line), j = i + d; if (j < 0 || j >= state.lines.length) return; [state.lines[i], state.lines[j]] = [state.lines[j], state.lines[i]]; const ti = state.lines[i].t; state.lines[i].t = state.lines[j].t; state.lines[j].t = ti; save(); render(); renderPanelEditor(); emit('reordered'); };
+    input.addEventListener('input', () => updateLine(line.id, { text: input.value }, { token: 'text:' + line.id }));
+    const move = d => { const i = state.lines.indexOf(line), j = i + d; if (j < 0 || j >= state.lines.length) return; remember(); [state.lines[i], state.lines[j]] = [state.lines[j], state.lines[i]]; const ti = state.lines[i].t; state.lines[i].t = state.lines[j].t; state.lines[j].t = ti; save(); render(); renderPanelEditor(); emit('reordered'); };
     up.addEventListener('click', () => move(-1)); down.addEventListener('click', () => move(1));
     del.addEventListener('click', () => { removeLine(line.id); renderPanelEditor(); });
     return el('div', { className: 'line' }, [who, input, el('div', { className: 'line-tools' }, [up, down, del])]);
@@ -612,7 +703,7 @@ function renderPanelEditor() {
   const bgSel = $('#panel-bg'), cur = lines[0].bg || '';
   bgSel.replaceChildren(el('option', { value: '', textContent: 'Same as the strip' }), ...backdropChoices().map(([id, name]) => el('option', { value: id, textContent: name, selected: id === cur })));
 }
-$('#panel-bg').addEventListener('change', e => { editing.lines.forEach(l => updateLine(l.id, { bg: e.target.value || undefined })); render(); });
+$('#panel-bg').addEventListener('change', e => { editing.lines.forEach(l => updateLine(l.id, { bg: e.target.value || undefined }, { token: 'panel-bg' })); render(); });
 $('#panel-read').addEventListener('click', () => { const i = panels.findIndex(p => p.lines.includes(editing.lines[0])); close('#dlg-panel'); emit('read', Math.max(0, i)); });
 $('#panel-save').addEventListener('click', () => { const p = panels.find(q => q.lines.includes(editing.lines[0])); if (p) emit('save-panel', p); });
 $('#dlg-panel').addEventListener('close', () => { state.lines.filter(l => !l.text.trim()).forEach(l => removeLine(l.id)); editing = null; });
@@ -621,7 +712,7 @@ $('#dlg-panel').addEventListener('close', () => { state.lines.filter(l => !l.tex
 function refreshAll(fresh) {
   $('#title').value = $('#title-m').value = state.title || ''; $('#turns').checked = $('#turns-m').checked = !!state.turns;
   textEl.value = ''; autosize(); applyPage(); applyCols(); loadHand(); segPaints.forEach(fn => fn());
-  redoStack.length = 0; renderCast(); resetDraft(); if (fresh) lastCount = 0; lastDraft = -1; render();
+  forgetHistory(); renderCast(); resetDraft(); if (fresh) lastCount = 0; lastDraft = -1; render();
 }
 function setStrip(next, { fresh = true } = {}) { save(); flush(); state = Object.assign(sample(), clone(next)); save(); refreshAll(fresh); emit('strip-changed'); }
 function newStrip({ quiet = false, title = '' } = {}) {
@@ -643,7 +734,14 @@ function paintLibThumb(cv) {
   ctx.clearRect(0, 0, cv.width, cv.height);
   if (first) { first.ids.forEach(FP.atlas); FP.drawPanel(ctx, first, cv.width); }
 }
+function paintBackupHint() {
+  const hint = $('#lib-hint'); if (!hint) return;
+  let saved = false;
+  try { saved = !!localStorage.getItem('sans-comic-backup'); } catch (e) { /* storage unavailable */ }
+  hint.hidden = saved || lib.length < 3;
+}
 function renderLib() {
+  paintBackupHint();
   const day = t => new Date(t || Date.now()).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   const list = lib.slice().sort((p, q) => (q.updated || 0) - (p.updated || 0));
   if (!list.length) return $('#lib').replaceChildren(el('p', { className: 'lib-empty', textContent: 'Nothing saved yet. Write a line and the strip appears here.' }));
