@@ -1,4 +1,16 @@
+<div align="center">
+
 # Sans Comic
+
+<p>
+  <a href="https://manaiakalani.github.io/sans-comic/">Live demo</a>
+  ·
+  <a href="#make-a-comic-strip">Make a comic strip</a>
+  ·
+  <a href="#run-sans-comic-on-your-computer">Run it on your computer</a>
+</p>
+
+</div>
 
 Type a line, get a comic panel. Sans Comic is a comic strip maker in the browser. It turns a conversation into a strip, with speech balloons, expressions, and gestures, using the characters and backdrops from Microsoft Comic Chat.
 
@@ -68,9 +80,9 @@ Set `HOST_PORT` to publish a different port. Copy `docker-compose.override.examp
 
 ## Put Sans Comic on GitHub Pages
 
-1. Push this folder to a repository.
-2. In the repository, go to **Settings, Pages**, choose **Deploy from a branch**, pick `main` and `/ (root)`.
-3. The comic maker is served at `https://<your-name>.github.io/<repository>/`.
+`.github/workflows/pages.yml` deploys the static files on every push to `main`. In the repository, go to **Settings, Pages**, set **Source** to **GitHub Actions**. The comic maker is then served at `https://<your-name>.github.io/<repository>/`.
+
+This copy is at [https://manaiakalani.github.io/sans-comic/](https://manaiakalani.github.io/sans-comic/). Draw together stays hidden on GitHub Pages because rooms need a host-provided room service. Everything else in the page works in the browser.
 
 ## Fonts, pictures, and privacy
 
