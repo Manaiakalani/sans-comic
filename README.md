@@ -1,4 +1,16 @@
+<div align="center">
+
 # Sans Comic
+
+<p>
+  <a href="https://comic.tinyinternet.company/">Live demo</a>
+  ·
+  <a href="#make-a-comic-strip">Make a comic strip</a>
+  ·
+  <a href="#run-sans-comic-on-your-computer">Run it on your computer</a>
+</p>
+
+</div>
 
 Type a line, get a comic panel. Sans Comic is a comic strip maker in the browser. It turns a conversation into a strip, with speech balloons, expressions, and gestures, using the characters and backdrops from Microsoft Comic Chat.
 
